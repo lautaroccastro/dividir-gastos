@@ -23,6 +23,10 @@ Resumen para retomar el trabajo en otro momento o en otro chat.
 
 **No usamos** por ahora la **service role key** en el cliente; la seguridad es **anon + JWT + RLS**.
 
+## Diseño / UI
+
+- Tokens y lineamientos: **`DESIGN.md`** + variables en **`src/app/globals.css`** (Tailwind v4, base stone + acento teal, modo oscuro según sistema).
+
 ## Variables de entorno (Vercel y local)
 
 En Vercel (Production y Preview si usás PRs) y en `.env.local` (no commitear):
@@ -36,10 +40,9 @@ Archivo de ejemplo: `.env.example`.
 
 1. **Middleware** — refresco de sesión Supabase en cada request.
 2. **`/login`** — Google OAuth, login con email/contraseña, alta de cuenta con redirect de confirmación a `/auth/callback`.
-3. **`/auth/callback`** — intercambio del código OAuth por sesión; las cookies se aplican sobre el `NextResponse.redirect` (fix necesario para que el login con Google persista en Vercel).
+3. **`/auth/callback`** — intercambio del código OAuth por sesión; las cookies se aplican sobre el `NextResponse.redirect`.
 4. **`/auth/auth-code-error`** — página si el callback falla.
-5. **Home (`/`)** — si hay sesión: formulario que guarda una **nota de prueba** en tabla `mvp_notes` y lista notas del usuario.
-6. **SQL** — `supabase-mvp.sql`: tabla `mvp_notes`, RLS para que cada usuario solo vea/inserte sus filas.
+5. **Home (`/`)** — placeholder tras login; próximo slice: **Mis grupos** (tabla `groups` en BD).
 
 ## Supabase — configuración que importa
 
@@ -61,14 +64,15 @@ Alias global `git c` (en `~/.gitconfig`):
 
 ## Estado actual
 
-- **Login (Google y email) y escritura en BD verificados** en producción.
-- Pendiente a nivel producto: **modelo de grupos, gastos y algoritmo de saldos**, UI definitiva, etc.
+- Infra de **auth** validada en producción.
+- MVP de **notas** removido del código; ejecutá **`supabase-drop-mvp-notes.sql`** en el SQL Editor si creaste la tabla `mvp_notes`.
+- Pendiente: slice **Mis grupos** (`groups`), gastos, saldos, repaso visual global.
 
 ## Archivos útiles para retomar
 
 | Archivo | Contenido |
 |---------|-----------|
-| `supabase-mvp.sql` | Tabla y políticas RLS del MVP |
+| `supabase-drop-mvp-notes.sql` | Borrar tabla `mvp_notes` en Supabase (solo si existía) |
 | `src/lib/supabase/*` | Clientes browser / server / middleware |
 | `src/app/auth/callback/route.ts` | Callback OAuth (cookies en response) |
 | `CONTEXTO-PROYECTO.md` | Este resumen |

@@ -1,26 +1,67 @@
 @import "tailwindcss";
 
+/* Base: neutros stone + acento teal. Ajustá hex acá para re-brand rápido. */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #fafaf9;
+  --foreground: #1c1917;
+  --muted: #f5f5f4;
+  --muted-foreground: #78716c;
+  --border: #e7e5e4;
+  --input: #d6d3d1;
+  --card: #fafaf9;
+  --card-foreground: #1c1917;
+  --primary: #0f766e;
+  --primary-foreground: #fafaf9;
+  --destructive: #fef2f2;
+  --destructive-foreground: #991b1b;
+  --destructive-border: #fecaca;
+  --ring: #0f766e;
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0c0a09;
+    --foreground: #fafaf9;
+    --muted: #292524;
+    --muted-foreground: #a8a29e;
+    --border: #44403c;
+    --input: #57534e;
+    --card: #1c1917;
+    --card-foreground: #fafaf9;
+    --primary: #2dd4bf;
+    --primary-foreground: #042f2e;
+    --destructive: #450a0a;
+    --destructive-foreground: #fecaca;
+    --destructive-border: #7f1d1d;
+    --ring: #2dd4bf;
+  }
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-destructive-border: var(--destructive-border);
+  --color-ring: var(--ring);
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  @apply bg-background text-foreground font-sans antialiased;
 }
