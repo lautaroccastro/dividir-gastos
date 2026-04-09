@@ -42,7 +42,10 @@ Archivo de ejemplo: `.env.example`.
 2. **`/login`** — Google OAuth, login con email/contraseña, alta de cuenta con redirect de confirmación a `/auth/callback`.
 3. **`/auth/callback`** — intercambio del código OAuth por sesión; las cookies se aplican sobre el `NextResponse.redirect`.
 4. **`/auth/auth-code-error`** — página si el callback falla.
-5. **Home (`/`)** — placeholder tras login; próximo slice: **Mis grupos** (tabla `groups` en BD).
+5. **Home (`/`)** — **Mis grupos**: listado de `groups` del usuario.
+6. **`/groups/new`** — crear grupo (nombre, moneda ARS/USD, participantes con flujo “lista + agregar al final”).
+7. **`/groups/[id]`** — detalle mínimo (gastos en un slice posterior).
+8. **SQL** — `supabase-slice1-groups.sql` (`groups` + `participants`, RLS).
 
 ## Supabase — configuración que importa
 
@@ -65,14 +68,16 @@ Alias global `git c` (en `~/.gitconfig`):
 ## Estado actual
 
 - Infra de **auth** validada en producción.
-- MVP de **notas** removido del código; ejecutá **`supabase-drop-mvp-notes.sql`** en el SQL Editor si creaste la tabla `mvp_notes`.
-- Pendiente: slice **Mis grupos** (`groups`), gastos, saldos, repaso visual global.
+- MVP de **notas** removido; si existía la tabla, ejecutá **`supabase-drop-mvp-notes.sql`**.
+- **Slice 1**: grupos + participantes en creación; ejecutá **`supabase-slice1-groups.sql`** en Supabase antes de probar.
+- Pendiente: **gastos** en detalle de grupo, saldos, repaso visual global.
 
 ## Archivos útiles para retomar
 
 | Archivo | Contenido |
 |---------|-----------|
-| `supabase-drop-mvp-notes.sql` | Borrar tabla `mvp_notes` en Supabase (solo si existía) |
+| `supabase-drop-mvp-notes.sql` | Borrar tabla `mvp_notes` (solo si existía) |
+| `supabase-slice1-groups.sql` | Tablas `groups` + `participants` y RLS |
 | `src/lib/supabase/*` | Clientes browser / server / middleware |
 | `src/app/auth/callback/route.ts` | Callback OAuth (cookies en response) |
 | `CONTEXTO-PROYECTO.md` | Este resumen |
