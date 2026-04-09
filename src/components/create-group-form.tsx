@@ -23,14 +23,12 @@ function caseInsensitiveKey(displayName: string): string {
 }
 
 /**
- * Create-group flow: participant list (pattern A) + single "add" field at the bottom.
- * The self row shows {@link SELF_PARTICIPANT_LABEL} ("Tú"), fixed label, removable, not editable.
+ * Create-group flow: optional self inclusion switch, then participant list (pattern A)
+ * + single "add" field at the bottom. The self row is not removable; toggling the switch off removes it.
  *
- * Group name: free text in the field; formatting is applied on the server and shown after
- * redirect to the group detail page.
+ * Group name: free text; formatting on the server, visible after redirect to group detail.
  *
- * Participant names: formatted only when confirmed (Add / Enter, or Save in edit mode),
- * using the same helpers as the server (`formatParticipantName`).
+ * Participant names: formatted when confirmed (Add / Enter, or Save in edit), same as server.
  */
 export function CreateGroupForm() {
   const [groupName, setGroupName] = useState("");
@@ -48,6 +46,30 @@ export function CreateGroupForm() {
   const [editDraft, setEditDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+
+  const userIsIncludedAsParticipant = participants.some(
+    (participant) => participant.isSelf,
+  );
+
+  function setUserIncludedAsParticipant(include: boolean) {
+    setError(null);
+    if (include) {
+      setParticipants((previous) =>
+        previous.some((p) => p.isSelf)
+          ? previous
+          : [
+              {
+                localKey: crypto.randomUUID(),
+                displayName: SELF_PARTICIPANT_LABEL,
+                isSelf: true,
+              },
+              ...previous,
+            ],
+      );
+    } else {
+      setParticipants((previous) => previous.filter((p) => !p.isSelf));
+    }
+  }
 
   function duplicateInList(name: string, excludeLocalKey?: string): boolean {
     const candidateKey = caseInsensitiveKey(name);
@@ -93,6 +115,10 @@ export function CreateGroupForm() {
   }
 
   function handleRemove(localKey: string) {
+    const target = participants.find((p) => p.localKey === localKey);
+    if (target?.isSelf) {
+      return;
+    }
     setError(null);
     setParticipants((previous) =>
       previous.filter((participant) => participant.localKey !== localKey),
@@ -204,6 +230,38 @@ export function CreateGroupForm() {
         </select>
       </div>
 
+      <div className="flex flex-col gap-3 rounded-lg border border-border bg-card px-4 py-3">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-1">
+            <span className="text-sm font-medium text-foreground" id="include-self-label">
+              Formo parte de los participantes
+            </span>
+            <p className="text-xs text-muted-foreground">
+              Desactivalo si solo querés registrar gastos entre otras personas.
+            </p>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={userIsIncludedAsParticipant}
+            aria-labelledby="include-self-label"
+            onClick={() =>
+              setUserIncludedAsParticipant(!userIsIncludedAsParticipant)
+            }
+            className={`relative h-8 w-14 shrink-0 rounded-full transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
+              userIsIncludedAsParticipant ? "bg-primary" : "bg-muted"
+            }`}
+          >
+            <span
+              className={`absolute top-1 left-1 block h-6 w-6 rounded-full bg-background shadow transition-transform ${
+                userIsIncludedAsParticipant ? "translate-x-6" : "translate-x-0"
+              }`}
+              aria-hidden
+            />
+          </button>
+        </div>
+      </div>
+
       <div className="flex flex-col gap-3">
         <span className="text-sm font-medium text-foreground">Participantes</span>
         <ul className="flex flex-col gap-2">
@@ -256,14 +314,16 @@ export function CreateGroupForm() {
                   </button>
                 </>
               )}
-              <button
-                type="button"
-                onClick={() => handleRemove(participant.localKey)}
-                className="text-sm text-muted-foreground hover:text-destructive-foreground"
-                aria-label="Quitar participante"
-              >
-                Quitar
-              </button>
+              {participant.isSelf ? null : (
+                <button
+                  type="button"
+                  onClick={() => handleRemove(participant.localKey)}
+                  className="text-sm text-muted-foreground hover:text-destructive-foreground"
+                  aria-label="Quitar participante"
+                >
+                  Quitar
+                </button>
+              )}
             </li>
           ))}
         </ul>
