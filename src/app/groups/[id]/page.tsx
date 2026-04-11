@@ -1,3 +1,4 @@
+import { DeleteGroupButton } from "@/components/delete-group-button";
 import {
   GroupExpensesSection,
   type GroupExpenseRow,
@@ -92,6 +93,7 @@ export default async function GroupDetailPage({ params }: Props) {
         <p className="text-sm text-muted-foreground">
           Moneda: <span className="text-foreground">{group.currency}</span>
         </p>
+        <DeleteGroupButton groupId={group.id} groupName={group.name} />
       </header>
       <GroupExpensesSection
         groupId={group.id}

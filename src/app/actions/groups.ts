@@ -90,3 +90,36 @@ export async function createGroupAction(
   revalidatePath("/");
   redirect(`/groups/${groupId}`);
 }
+
+/**
+ * Deletes the group and all dependent rows (participants, expenses, splits) via ON DELETE CASCADE.
+ * Only succeeds if the group belongs to the current user (RLS + explicit filter).
+ */
+export async function deleteGroupAction(
+  groupId: string,
+): Promise<{ error: string } | void> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { error: "Tenés que iniciar sesión." };
+  }
+
+  const { data: deleted, error: delErr } = await supabase
+    .from("groups")
+    .delete()
+    .eq("id", groupId)
+    .eq("user_id", user.id)
+    .select("id");
+
+  if (delErr) {
+    return { error: delErr.message };
+  }
+  if (!deleted?.length) {
+    return { error: "No se encontró el grupo." };
+  }
+
+  revalidatePath("/");
+  redirect("/");
+}

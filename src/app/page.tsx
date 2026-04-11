@@ -12,7 +12,7 @@ export default async function Home() {
     ? await supabase
         .from("groups")
         .select("id, name, currency, created_at")
-        .order("created_at", { ascending: false })
+        .order("created_at", { ascending: true })
     : { data: null };
 
   return (
