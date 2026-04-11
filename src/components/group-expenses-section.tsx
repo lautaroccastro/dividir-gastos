@@ -187,15 +187,6 @@ export function GroupExpensesSection({
     );
   }
 
-  const detailExpense =
-    detailExpenseId !== null
-      ? expenses.find((e) => e.id === detailExpenseId)
-      : undefined;
-
-  const detailBreakdown = detailExpense
-    ? splitBreakdownForExpense(detailExpense)
-    : [];
-
   return (
     <section className="flex flex-col gap-8" aria-label="Gastos del grupo">
       <div className="flex flex-col gap-3">
@@ -344,29 +335,91 @@ export function GroupExpensesSection({
         {expenses.length === 0 ? (
           <p className="text-sm text-muted-foreground">Todavía no hay gastos.</p>
         ) : (
-          <>
-            <ul className="flex flex-col gap-2">
-              {expenses.map((row) => {
-                const isOpen = detailExpenseId === row.id;
-                return (
-                  <li key={row.id}>
+          <ul className="flex flex-col gap-2">
+            {expenses.map((row) => {
+              const isOpen = detailExpenseId === row.id;
+              const breakdown = isOpen ? splitBreakdownForExpense(row) : [];
+
+              return (
+                <li key={row.id}>
+                  {isOpen ? (
+                    <div
+                      className="rounded-lg border border-primary bg-primary/5 p-4 text-card-foreground"
+                      role="region"
+                      aria-label={`Detalle de ${row.title}`}
+                    >
+                      <div className="flex flex-col gap-1 border-b border-border pb-3">
+                        <h3 className="text-base font-semibold text-foreground">{row.title}</h3>
+                        <p className="text-sm text-muted-foreground">
+                          {formatExpenseDateDdMmYy(row.expense_date)}
+                        </p>
+                        <p className="text-lg font-semibold tabular-nums text-foreground">
+                          {formatMoney(row.amount, currency)}
+                        </p>
+                        <p className="text-sm text-foreground">
+                          Pagó:{" "}
+                          <span className="font-medium">
+                            {participantNameById(participants, row.paid_by_participant_id)}
+                          </span>
+                        </p>
+                      </div>
+                      <div className="pt-3">
+                        <p className="text-sm font-medium text-foreground">Reparto</p>
+                        {breakdown.length === 0 ? (
+                          <p className="mt-1 text-sm text-muted-foreground">Sin reparto.</p>
+                        ) : (
+                          <ul className="mt-2 flex flex-col gap-2">
+                            {breakdown.map((line) => (
+                              <li
+                                key={line.id}
+                                className="flex items-center justify-between gap-3 text-sm"
+                              >
+                                <span className="text-foreground">{line.name}</span>
+                                <span className="font-medium tabular-nums text-foreground">
+                                  {formatMoney((line.shareCents / 100).toFixed(2), currency)}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                      <div className="mt-4 flex flex-wrap gap-2 border-t border-border pt-4">
+                        <button
+                          type="button"
+                          disabled={pending}
+                          onClick={() => loadExpenseForEdit(row)}
+                          className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+                        >
+                          Editar
+                        </button>
+                        <button
+                          type="button"
+                          disabled={pending}
+                          onClick={() => handleDelete(row.id)}
+                          className="rounded-md border border-destructive-border bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground hover:opacity-90 disabled:opacity-50"
+                        >
+                          Borrar
+                        </button>
+                        <button
+                          type="button"
+                          disabled={pending}
+                          onClick={() => setDetailExpenseId(null)}
+                          className="rounded-md border border-border bg-background px-4 py-2 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-50"
+                        >
+                          Cerrar
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
                     <button
                       type="button"
                       disabled={pending}
-                      onClick={() =>
-                        setDetailExpenseId((prev) => (prev === row.id ? null : row.id))
-                      }
-                      aria-expanded={isOpen}
-                      className={`flex w-full items-start justify-between gap-3 rounded-lg border px-4 py-3 text-left transition-colors ${
-                        isOpen
-                          ? "border-primary bg-primary/5"
-                          : "border-border bg-card hover:bg-muted/50"
-                      } disabled:opacity-50`}
+                      onClick={() => setDetailExpenseId(row.id)}
+                      aria-expanded={false}
+                      className="flex w-full items-start justify-between gap-3 rounded-lg border border-border bg-card px-4 py-3 text-left transition-colors hover:bg-muted/50 disabled:opacity-50"
                     >
                       <div className="min-w-0 flex-1">
-                        <span className="block font-medium text-card-foreground">
-                          {row.title}
-                        </span>
+                        <span className="block font-medium text-card-foreground">{row.title}</span>
                         <span className="mt-0.5 block text-sm text-muted-foreground">
                           {formatExpenseDateDdMmYy(row.expense_date)}
                         </span>
@@ -375,89 +428,11 @@ export function GroupExpensesSection({
                         {formatMoney(row.amount, currency)}
                       </span>
                     </button>
-                  </li>
-                );
-              })}
-            </ul>
-
-            {detailExpense ? (
-              <div
-                className="mt-4 rounded-lg border border-border bg-muted/30 p-4"
-                role="region"
-                aria-label={`Detalle de ${detailExpense.title}`}
-              >
-                <div className="flex flex-col gap-1 border-b border-border pb-3">
-                  <h3 className="text-base font-semibold text-foreground">{detailExpense.title}</h3>
-                  <p className="text-sm text-muted-foreground">
-                    {formatExpenseDateDdMmYy(detailExpense.expense_date)}
-                  </p>
-                  <p className="text-lg font-semibold tabular-nums text-foreground">
-                    {formatMoney(detailExpense.amount, currency)}
-                  </p>
-                  <p className="text-sm text-foreground">
-                    Pagó:{" "}
-                    <span className="font-medium">
-                      {participantNameById(
-                        participants,
-                        detailExpense.paid_by_participant_id,
-                      )}
-                    </span>
-                  </p>
-                </div>
-                <div className="pt-3">
-                  <p className="text-sm font-medium text-foreground">Reparto</p>
-                  {detailBreakdown.length === 0 ? (
-                    <p className="mt-1 text-sm text-muted-foreground">Sin reparto.</p>
-                  ) : (
-                    <>
-                      <ul className="mt-2 flex flex-col gap-2">
-                        {detailBreakdown.map((line) => (
-                          <li
-                            key={line.id}
-                            className="flex items-center justify-between gap-3 text-sm"
-                          >
-                            <span className="text-foreground">{line.name}</span>
-                            <span className="font-medium tabular-nums text-foreground">
-                              {formatMoney((line.shareCents / 100).toFixed(2), currency)}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                      <p className="mt-3 text-xs text-muted-foreground">
-                        Partes iguales; el último en esta lista suma el centavo que sobra.
-                      </p>
-                    </>
                   )}
-                </div>
-                <div className="mt-4 flex flex-wrap gap-2 border-t border-border pt-4">
-                  <button
-                    type="button"
-                    disabled={pending}
-                    onClick={() => loadExpenseForEdit(detailExpense)}
-                    className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
-                  >
-                    Editar
-                  </button>
-                  <button
-                    type="button"
-                    disabled={pending}
-                    onClick={() => handleDelete(detailExpense.id)}
-                    className="rounded-md border border-destructive-border bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground hover:opacity-90 disabled:opacity-50"
-                  >
-                    Borrar
-                  </button>
-                  <button
-                    type="button"
-                    disabled={pending}
-                    onClick={() => setDetailExpenseId(null)}
-                    className="rounded-md border border-border bg-background px-4 py-2 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-50"
-                  >
-                    Cerrar
-                  </button>
-                </div>
-              </div>
-            ) : null}
-          </>
+                </li>
+              );
+            })}
+          </ul>
         )}
       </div>
     </section>
