@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import {
   normalizeExpenseTitle,
   parseExpenseAmount,
-  parseExpenseDateDdMmYy,
+  parseExpenseDateIso,
 } from "@/lib/validation/expense";
 import { revalidatePath } from "next/cache";
 
@@ -14,7 +14,8 @@ export type UpsertExpenseInput = {
   expenseId?: string;
   rawTitle: string;
   rawAmount: string;
-  rawDateDdMmYy: string;
+  /** YYYY-MM-DD from `<input type="date">`. */
+  expenseDateIso: string;
   paidByParticipantId: string;
   splitParticipantIds: string[];
 };
@@ -93,7 +94,7 @@ export async function createExpenseAction(
   const amountRes = parseExpenseAmount(input.rawAmount);
   if (!amountRes.ok) return { error: amountRes.error };
 
-  const dateRes = parseExpenseDateDdMmYy(input.rawDateDdMmYy);
+  const dateRes = parseExpenseDateIso(input.expenseDateIso);
   if (!dateRes.ok) return { error: dateRes.error };
 
   const loaded = await loadGroupParticipants(supabase, input.groupId, user.id);
@@ -163,7 +164,7 @@ export async function updateExpenseAction(
   const amountRes = parseExpenseAmount(input.rawAmount);
   if (!amountRes.ok) return { error: amountRes.error };
 
-  const dateRes = parseExpenseDateDdMmYy(input.rawDateDdMmYy);
+  const dateRes = parseExpenseDateIso(input.expenseDateIso);
   if (!dateRes.ok) return { error: dateRes.error };
 
   const { data: existing, error: exErr } = await supabase

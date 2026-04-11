@@ -9,7 +9,8 @@ import { amountToCents, splitAmountCentsEvenly } from "@/lib/expense/split";
 import {
   EXPENSE_TITLE_MAX,
   formatExpenseDateDdMmYy,
-  todayDdMmYy,
+  todayIso,
+  toDateInputValue,
 } from "@/lib/validation/expense";
 import { useMemo, useState, useTransition } from "react";
 
@@ -71,7 +72,7 @@ export function GroupExpensesSection({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [rawAmount, setRawAmount] = useState("");
-  const [rawDate, setRawDate] = useState(todayDdMmYy());
+  const [expenseDateIso, setExpenseDateIso] = useState(() => todayIso());
   const [paidById, setPaidById] = useState(() => participants[0]?.id ?? "");
   const [splitOn, setSplitOn] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {};
@@ -80,6 +81,8 @@ export function GroupExpensesSection({
   });
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  /** Gasto cuyo detalle (reparto, acciones) se muestra debajo del listado. */
+  const [detailExpenseId, setDetailExpenseId] = useState<string | null>(null);
 
   const orderedParticipantIds = useMemo(
     () =>
@@ -93,7 +96,7 @@ export function GroupExpensesSection({
     setEditingId(null);
     setTitle("");
     setRawAmount("");
-    setRawDate(todayDdMmYy());
+    setExpenseDateIso(todayIso());
     setPaidById(participants[0]?.id ?? "");
     const next: Record<string, boolean> = {};
     for (const p of participants) next[p.id] = true;
@@ -102,10 +105,11 @@ export function GroupExpensesSection({
   }
 
   function loadExpenseForEdit(row: GroupExpenseRow) {
+    setDetailExpenseId(null);
     setEditingId(row.id);
     setTitle(row.title);
     setRawAmount(formatAmountForInput(row.amount));
-    setRawDate(formatExpenseDateDdMmYy(row.expense_date));
+    setExpenseDateIso(toDateInputValue(row.expense_date));
     setPaidById(row.paid_by_participant_id);
     const next: Record<string, boolean> = {};
     for (const p of participants) next[p.id] = false;
@@ -118,20 +122,20 @@ export function GroupExpensesSection({
     return orderedParticipantIds.filter((id) => splitOn[id]);
   }
 
-  function splitSummaryLine(row: GroupExpenseRow): string {
+  function splitBreakdownForExpense(row: GroupExpenseRow): {
+    id: string;
+    name: string;
+    shareCents: number;
+  }[] {
     const selected = new Set(row.splitParticipantIds);
     const ids = orderedParticipantIds.filter((id) => selected.has(id));
     const cents = amountToCents(String(row.amount));
     const shares = splitAmountCentsEvenly(cents, ids);
-    if (ids.length === 0) return "Sin reparto";
-    const fmt = (c: number) => formatMoney((c / 100).toFixed(2), currency);
-    const values = ids.map((id) => shares.get(id) ?? 0);
-    const min = Math.min(...values);
-    const max = Math.max(...values);
-    if (min === max) {
-      return `${ids.length} partes iguales · ${fmt(min)} c/u`;
-    }
-    return `${ids.length} partes · ${fmt(min)} a ${fmt(max)} (el último ajusta)`;
+    return ids.map((id) => ({
+      id,
+      name: participantNameById(participants, id),
+      shareCents: shares.get(id) ?? 0,
+    }));
   }
 
   function handleSubmit(e: React.FormEvent) {
@@ -142,7 +146,7 @@ export function GroupExpensesSection({
       groupId,
       rawTitle: title,
       rawAmount,
-      rawDateDdMmYy: rawDate,
+      expenseDateIso,
       paidByParticipantId: paidById,
       splitParticipantIds,
     };
@@ -171,6 +175,7 @@ export function GroupExpensesSection({
         return;
       }
       if (editingId === id) resetFormForCreate();
+      if (detailExpenseId === id) setDetailExpenseId(null);
     });
   }
 
@@ -181,6 +186,15 @@ export function GroupExpensesSection({
       </p>
     );
   }
+
+  const detailExpense =
+    detailExpenseId !== null
+      ? expenses.find((e) => e.id === detailExpenseId)
+      : undefined;
+
+  const detailBreakdown = detailExpense
+    ? splitBreakdownForExpense(detailExpense)
+    : [];
 
   return (
     <section className="flex flex-col gap-8" aria-label="Gastos del grupo">
@@ -226,30 +240,31 @@ export function GroupExpensesSection({
               <label htmlFor="expense-date" className="text-sm text-muted-foreground">
                 Fecha del gasto
               </label>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <input
                   id="expense-date"
                   name="date"
-                  value={rawDate}
-                  onChange={(ev) => setRawDate(ev.target.value)}
-                  className="min-w-0 flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground outline-none ring-ring focus-visible:ring-2"
-                  placeholder="DD-MM-YY"
+                  type="date"
+                  value={expenseDateIso}
+                  onChange={(ev) => setExpenseDateIso(ev.target.value)}
+                  min="2000-01-01"
+                  max="2100-12-31"
+                  className="min-h-10 min-w-0 flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground outline-none ring-ring focus-visible:ring-2"
                   required
                   autoComplete="off"
-                  title="Día-mes-año con dos cifras. Ej: 07-04-26"
                   suppressHydrationWarning
                 />
                 <button
                   type="button"
-                  onClick={() => setRawDate(todayDdMmYy())}
+                  onClick={() => setExpenseDateIso(todayIso())}
                   className="shrink-0 rounded-md border border-border bg-muted px-3 py-2 text-sm font-medium text-foreground hover:bg-muted/80"
                 >
                   Hoy
                 </button>
               </div>
               <p className="text-xs text-muted-foreground">
-                Formato <span className="font-mono text-foreground">DD-MM-YY</span>. Por defecto es la fecha de
-                hoy; tocá «Hoy» para volver a hoy después de editarla.
+                Usá el calendario del sistema (o escribí la fecha). Por defecto es hoy; «Hoy» restablece la fecha
+                actual.
               </p>
             </div>
           </div>
@@ -329,48 +344,120 @@ export function GroupExpensesSection({
         {expenses.length === 0 ? (
           <p className="text-sm text-muted-foreground">Todavía no hay gastos.</p>
         ) : (
-          <ul className="flex flex-col gap-3">
-            {expenses.map((row) => (
-              <li
-                key={row.id}
-                className="rounded-lg border border-border bg-card px-4 py-3 text-card-foreground"
+          <>
+            <ul className="flex flex-col gap-2">
+              {expenses.map((row) => {
+                const isOpen = detailExpenseId === row.id;
+                return (
+                  <li key={row.id}>
+                    <button
+                      type="button"
+                      disabled={pending}
+                      onClick={() =>
+                        setDetailExpenseId((prev) => (prev === row.id ? null : row.id))
+                      }
+                      aria-expanded={isOpen}
+                      className={`flex w-full items-start justify-between gap-3 rounded-lg border px-4 py-3 text-left transition-colors ${
+                        isOpen
+                          ? "border-primary bg-primary/5"
+                          : "border-border bg-card hover:bg-muted/50"
+                      } disabled:opacity-50`}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <span className="block font-medium text-card-foreground">
+                          {row.title}
+                        </span>
+                        <span className="mt-0.5 block text-sm text-muted-foreground">
+                          {formatExpenseDateDdMmYy(row.expense_date)}
+                        </span>
+                      </div>
+                      <span className="shrink-0 text-lg font-semibold tabular-nums text-card-foreground">
+                        {formatMoney(row.amount, currency)}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+
+            {detailExpense ? (
+              <div
+                className="mt-4 rounded-lg border border-border bg-muted/30 p-4"
+                role="region"
+                aria-label={`Detalle de ${detailExpense.title}`}
               >
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <div className="flex flex-col gap-1">
-                    <span className="font-medium">{row.title}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {formatExpenseDateDdMmYy(row.expense_date)} · Pagó{" "}
-                      {participantNameById(participants, row.paid_by_participant_id)}
+                <div className="flex flex-col gap-1 border-b border-border pb-3">
+                  <h3 className="text-base font-semibold text-foreground">{detailExpense.title}</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {formatExpenseDateDdMmYy(detailExpense.expense_date)}
+                  </p>
+                  <p className="text-lg font-semibold tabular-nums text-foreground">
+                    {formatMoney(detailExpense.amount, currency)}
+                  </p>
+                  <p className="text-sm text-foreground">
+                    Pagó:{" "}
+                    <span className="font-medium">
+                      {participantNameById(
+                        participants,
+                        detailExpense.paid_by_participant_id,
+                      )}
                     </span>
-                    <span className="text-xs text-muted-foreground">
-                      {splitSummaryLine(row)}
-                    </span>
-                  </div>
-                  <span className="text-lg font-semibold tabular-nums">
-                    {formatMoney(row.amount, currency)}
-                  </span>
+                  </p>
                 </div>
-                <div className="mt-3 flex flex-wrap gap-2">
+                <div className="pt-3">
+                  <p className="text-sm font-medium text-foreground">Reparto</p>
+                  {detailBreakdown.length === 0 ? (
+                    <p className="mt-1 text-sm text-muted-foreground">Sin reparto.</p>
+                  ) : (
+                    <>
+                      <ul className="mt-2 flex flex-col gap-2">
+                        {detailBreakdown.map((line) => (
+                          <li
+                            key={line.id}
+                            className="flex items-center justify-between gap-3 text-sm"
+                          >
+                            <span className="text-foreground">{line.name}</span>
+                            <span className="font-medium tabular-nums text-foreground">
+                              {formatMoney((line.shareCents / 100).toFixed(2), currency)}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                      <p className="mt-3 text-xs text-muted-foreground">
+                        Partes iguales; el último en esta lista suma el centavo que sobra.
+                      </p>
+                    </>
+                  )}
+                </div>
+                <div className="mt-4 flex flex-wrap gap-2 border-t border-border pt-4">
                   <button
                     type="button"
                     disabled={pending}
-                    onClick={() => loadExpenseForEdit(row)}
-                    className="text-sm text-primary hover:underline disabled:opacity-50"
+                    onClick={() => loadExpenseForEdit(detailExpense)}
+                    className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
                   >
                     Editar
                   </button>
                   <button
                     type="button"
                     disabled={pending}
-                    onClick={() => handleDelete(row.id)}
-                    className="text-sm text-destructive-foreground hover:underline disabled:opacity-50"
+                    onClick={() => handleDelete(detailExpense.id)}
+                    className="rounded-md border border-destructive-border bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground hover:opacity-90 disabled:opacity-50"
                   >
                     Borrar
                   </button>
+                  <button
+                    type="button"
+                    disabled={pending}
+                    onClick={() => setDetailExpenseId(null)}
+                    className="rounded-md border border-border bg-background px-4 py-2 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-50"
+                  >
+                    Cerrar
+                  </button>
                 </div>
-              </li>
-            ))}
-          </ul>
+              </div>
+            ) : null}
+          </>
         )}
       </div>
     </section>

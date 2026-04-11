@@ -46,17 +46,18 @@ export type ExpenseDateOk = { ok: true; isoDate: string };
 export type ExpenseDateErr = { ok: false; error: string };
 export type ExpenseDateResult = ExpenseDateOk | ExpenseDateErr;
 
-/** Parses DD-MM-YY into ISO date YYYY-MM-DD (date-only, no time). */
-export function parseExpenseDateDdMmYy(raw: string): ExpenseDateResult {
+/**
+ * Parses YYYY-MM-DD (same as `<input type="date">` value) into a normalized ISO date string.
+ */
+export function parseExpenseDateIso(raw: string): ExpenseDateResult {
   const s = raw.trim();
-  const m = s.match(/^(\d{2})-(\d{2})-(\d{2})$/);
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (!m) {
-    return { ok: false, error: "Usá el formato DD-MM-YY (ej. 07-04-26)." };
+    return { ok: false, error: "Elegí una fecha válida." };
   }
-  const dd = parseInt(m[1], 10);
+  const yyyy = parseInt(m[1], 10);
   const mm = parseInt(m[2], 10);
-  const yy = parseInt(m[3], 10);
-  const yyyy = 2000 + yy;
+  const dd = parseInt(m[3], 10);
   const trial = new Date(yyyy, mm - 1, dd);
   if (
     trial.getFullYear() !== yyyy ||
@@ -65,8 +66,7 @@ export function parseExpenseDateDdMmYy(raw: string): ExpenseDateResult {
   ) {
     return { ok: false, error: "Esa fecha no es válida." };
   }
-  const iso = `${yyyy}-${String(mm).padStart(2, "0")}-${String(dd).padStart(2, "0")}`;
-  return { ok: true, isoDate: iso };
+  return { ok: true, isoDate: s };
 }
 
 /** Formats an ISO date (YYYY-MM-DD) as DD-MM-YY for display. */
@@ -80,13 +80,19 @@ export function formatExpenseDateDdMmYy(isoDate: string): string {
   return `${dd}-${mm}-${yy}`;
 }
 
-/** Today's date as DD-MM-YY for inputs. */
-export function todayDdMmYy(): string {
+/** Today's local date as YYYY-MM-DD for `<input type="date">`. */
+export function todayIso(): string {
   const d = new Date();
-  const dd = String(d.getDate()).padStart(2, "0");
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const yy = String(d.getFullYear() % 100).padStart(2, "0");
-  return `${dd}-${mm}-${yy}`;
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+/** Strips time from Postgres / ISO strings so `type="date"` accepts the value. */
+export function toDateInputValue(isoOrTimestamp: string): string {
+  const m = isoOrTimestamp.trim().match(/^(\d{4}-\d{2}-\d{2})/);
+  return m ? m[1]! : isoOrTimestamp.slice(0, 10);
 }
 
 export function normalizeExpenseTitle(raw: string): { ok: true; title: string } | { ok: false; error: string } {

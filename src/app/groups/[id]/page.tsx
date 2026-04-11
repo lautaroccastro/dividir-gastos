@@ -93,7 +93,6 @@ export default async function GroupDetailPage({ params }: Props) {
         <p className="text-sm text-muted-foreground">
           Moneda: <span className="text-foreground">{group.currency}</span>
         </p>
-        <DeleteGroupButton groupId={group.id} groupName={group.name} />
       </header>
       <GroupExpensesSection
         groupId={group.id}
@@ -101,6 +100,12 @@ export default async function GroupDetailPage({ params }: Props) {
         participants={participants ?? []}
         expenses={expenses}
       />
+      <section
+        className="border-t border-border pt-8"
+        aria-label="Eliminar grupo"
+      >
+        <DeleteGroupButton groupId={group.id} groupName={group.name} />
+      </section>
     </div>
   );
 }
