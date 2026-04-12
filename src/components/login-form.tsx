@@ -1,7 +1,8 @@
 "use client";
 
 import { createClient } from "@/lib/supabase/client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 
 function GoogleMark({ className }: { className?: string }) {
   return (
@@ -42,6 +43,26 @@ function emailFormatMessage(raw: string): string | null {
   return null;
 }
 
+function FullscreenLoadingOverlay() {
+  return (
+    <div
+      className="fixed inset-0 z-[300] flex items-center justify-center bg-background/80 backdrop-blur-sm"
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+      aria-label="Cargando"
+    >
+      <div className="flex flex-col items-center gap-4 rounded-xl border border-border bg-card px-8 py-6 shadow-lg">
+        <div
+          className="h-10 w-10 animate-spin rounded-full border-[3px] border-primary border-t-transparent"
+          aria-hidden
+        />
+        <p className="text-sm font-medium text-foreground">Cargando…</p>
+      </div>
+    </div>
+  );
+}
+
 export function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -52,6 +73,15 @@ export function LoginForm() {
   const supabase = createClient();
   const origin =
     typeof window !== "undefined" ? window.location.origin : "";
+
+  useEffect(() => {
+    if (!loading) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [loading]);
 
   async function handleSignUp(e: React.FormEvent) {
     e.preventDefault();
@@ -117,7 +147,14 @@ export function LoginForm() {
     }
   }
 
+  const overlay =
+    loading && typeof document !== "undefined"
+      ? createPortal(<FullscreenLoadingOverlay />, document.body)
+      : null;
+
   return (
+    <>
+      {overlay}
     <div className="flex w-full max-w-sm flex-col gap-6">
       <button
         type="button"
@@ -193,5 +230,6 @@ export function LoginForm() {
         <p className="text-center text-sm text-muted-foreground">{message}</p>
       ) : null}
     </div>
+    </>
   );
 }

@@ -621,84 +621,89 @@ export function GroupExpensesSection({
         )}
       </div>
 
-      {showTransfersView ? (
-        <div className="flex flex-col gap-4 pt-4">
-          <h2 className="text-lg font-semibold text-foreground" id="transferencias-heading">
-            Transferencias sugeridas
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            Montos mínimos para saldar balances, según los gastos cargados.
-          </p>
-          {suggestedTransfers.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No hay transferencias pendientes.
-            </p>
-          ) : (
-            <ul className="flex flex-col gap-2" aria-labelledby="transferencias-heading">
-              {suggestedTransfers.map((t, index) => {
-                const receiverAlias = participantPaymentAliasById(
-                  participants,
-                  t.toParticipantId,
-                );
-                return (
-                  <li
-                    key={`${t.fromParticipantId}-${t.toParticipantId}-${index}`}
-                    className="rounded-lg border border-border bg-card px-3 py-2 text-sm"
-                  >
-                    <div className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)_auto_auto_auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1">
-                      <span className="min-w-0 font-medium text-red-700 dark:text-red-400">
-                        {participantNameById(participants, t.fromParticipantId)}
-                      </span>
-                      <span
-                        className="justify-self-center text-muted-foreground"
-                        aria-hidden
+      <div
+        className="flex flex-col gap-4 border-t border-border pt-8"
+        aria-labelledby="transferencias-heading"
+      >
+        <h2 className="text-lg font-semibold text-foreground" id="transferencias-heading">
+          Transferencias sugeridas
+        </h2>
+        {showTransfersView ? (
+          <>
+            {suggestedTransfers.length === 0 ? (
+              <p className="rounded-lg bg-green-50 px-3 py-2 text-sm font-medium text-green-800 dark:bg-green-950/50 dark:text-green-300">
+                Todos los gastos están saldados
+              </p>
+            ) : (
+              <>
+                <p className="text-sm text-muted-foreground">
+                  Montos mínimos para saldar balances, según los gastos cargados.
+                </p>
+                <ul className="flex flex-col gap-2">
+                  {suggestedTransfers.map((t, index) => {
+                    const receiverAlias = participantPaymentAliasById(
+                      participants,
+                      t.toParticipantId,
+                    );
+                    return (
+                      <li
+                        key={`${t.fromParticipantId}-${t.toParticipantId}-${index}`}
+                        className="rounded-lg border border-border bg-card px-3 py-2 text-sm"
                       >
-                        →
-                      </span>
-                      <span className="shrink-0 justify-self-center font-semibold tabular-nums text-foreground">
-                        {formatMoney((t.amountCents / 100).toFixed(2), currency)}
-                      </span>
-                      <span
-                        className="justify-self-center text-muted-foreground"
-                        aria-hidden
-                      >
-                        →
-                      </span>
-                      <div className="min-w-0 justify-self-end text-right">
-                        <span className="block font-medium text-green-700 dark:text-green-500">
-                          {participantNameById(participants, t.toParticipantId)}
-                        </span>
-                        {receiverAlias ? (
-                          <p className="mt-0.5 text-xs text-muted-foreground">
-                            Alias: {receiverAlias}
-                          </p>
-                        ) : null}
-                      </div>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-          <div className="flex flex-col gap-3 pt-2">
-            <button
-              type="button"
-              onClick={() => {
-                closeTransfersView();
-              }}
-              className="w-full rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm font-medium text-foreground hover:bg-muted/50"
-            >
-              Volver a editar
-            </button>
-            <p className="text-xs text-muted-foreground">
-              Si modificás gastos o participantes, las sugerencias dejan de mostrarse hasta
-              que vuelvas a usar «Cerrar gastos y sugerir transferencias». Al generarlas de
-              nuevo, se recalculan con los datos actuales.
-            </p>
-          </div>
-        </div>
-      ) : (
-        <div className="pt-4">
+                        <div className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)_auto_auto_auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1">
+                          <span className="min-w-0 font-medium text-red-700 dark:text-red-400">
+                            {participantNameById(participants, t.fromParticipantId)}
+                          </span>
+                          <span
+                            className="justify-self-center text-muted-foreground"
+                            aria-hidden
+                          >
+                            →
+                          </span>
+                          <span className="shrink-0 justify-self-center font-semibold tabular-nums text-foreground">
+                            {formatMoney((t.amountCents / 100).toFixed(2), currency)}
+                          </span>
+                          <span
+                            className="justify-self-center text-muted-foreground"
+                            aria-hidden
+                          >
+                            →
+                          </span>
+                          <div className="min-w-0 justify-self-end text-right">
+                            <span className="block font-medium text-green-700 dark:text-green-500">
+                              {participantNameById(participants, t.toParticipantId)}
+                            </span>
+                            {receiverAlias ? (
+                              <p className="mt-0.5 text-xs text-muted-foreground">
+                                Alias: {receiverAlias}
+                              </p>
+                            ) : null}
+                          </div>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </>
+            )}
+            <div className="flex flex-col gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  closeTransfersView();
+                }}
+                className="w-full rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm font-medium text-foreground hover:bg-muted/50"
+              >
+                Volver a editar
+              </button>
+              <p className="text-xs text-muted-foreground">
+                Si modificás gastos o participantes, las sugerencias dejan de mostrarse hasta
+                que vuelvas a usar «Cerrar gastos y sugerir transferencias». Al generarlas de
+                nuevo, se recalculan con los datos actuales.
+              </p>
+            </div>
+          </>
+        ) : (
           <button
             type="button"
             disabled={pending}
@@ -707,8 +712,8 @@ export function GroupExpensesSection({
           >
             Cerrar gastos y sugerir transferencias
           </button>
-        </div>
-      )}
+        )}
+      </div>
     </section>
   );
 }
