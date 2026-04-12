@@ -1,4 +1,5 @@
 import { DeleteGroupButton } from "@/components/delete-group-button";
+import { EditGroupSection } from "@/components/edit-group-section";
 import {
   GroupExpensesSection,
   type GroupExpenseRow,
@@ -46,7 +47,7 @@ export default async function GroupDetailPage({ params }: Props) {
 
   const { data: participants } = await supabase
     .from("participants")
-    .select("id, display_name, sort_order")
+    .select("id, display_name, sort_order, is_self")
     .eq("group_id", id)
     .order("sort_order", { ascending: true })
     .order("id", { ascending: true });
@@ -94,6 +95,18 @@ export default async function GroupDetailPage({ params }: Props) {
           Moneda: <span className="text-foreground">{group.currency}</span>
         </p>
       </header>
+      <EditGroupSection
+        groupId={group.id}
+        initialName={group.name}
+        initialCurrency={group.currency as "ARS" | "USD"}
+        initialParticipants={
+          (participants ?? []).map((p) => ({
+            id: p.id,
+            display_name: p.display_name,
+            is_self: p.is_self,
+          }))
+        }
+      />
       <GroupExpensesSection
         groupId={group.id}
         currency={group.currency}
