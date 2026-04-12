@@ -1,5 +1,6 @@
 "use client";
 
+import { setGroupTransfersSuggestedUiAction } from "@/app/actions/group-update";
 import {
   createExpenseAction,
   deleteExpenseAction,
@@ -14,12 +15,14 @@ import {
   todayIso,
   toDateInputValue,
 } from "@/lib/validation/expense";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 
 export type GroupExpenseParticipant = {
   id: string;
   display_name: string;
   sort_order: number;
+  payment_alias: string | null;
 };
 
 export type GroupExpenseRow = {
@@ -36,6 +39,8 @@ type Props = {
   currency: string;
   participants: GroupExpenseParticipant[];
   expenses: GroupExpenseRow[];
+  /** From DB: user left the group in "transferencias sugeridas" mode. */
+  initialTransfersSuggestedUi: boolean;
 };
 
 function formatMoney(amountStr: string, currencyCode: string): string {
@@ -65,6 +70,15 @@ function participantNameById(
   return participants.find((p) => p.id === id)?.display_name ?? "—";
 }
 
+function participantPaymentAliasById(
+  participants: GroupExpenseParticipant[],
+  id: string,
+): string | null {
+  const a = participants.find((p) => p.id === id)?.payment_alias;
+  if (a == null || !String(a).trim()) return null;
+  return String(a).trim();
+}
+
 const expenseFormCardClass =
   "rounded-lg border border-primary bg-primary/5 p-4 text-card-foreground";
 
@@ -73,7 +87,9 @@ export function GroupExpensesSection({
   currency,
   participants,
   expenses,
+  initialTransfersSuggestedUi,
 }: Props) {
+  const router = useRouter();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [title, setTitle] = useState("");
@@ -87,7 +103,9 @@ export function GroupExpensesSection({
   });
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
-  const [showTransfersView, setShowTransfersView] = useState(false);
+  const [showTransfersView, setShowTransfersView] = useState(
+    initialTransfersSuggestedUi,
+  );
 
   const orderedParticipantIds = useMemo(
     () =>
@@ -110,7 +128,19 @@ export function GroupExpensesSection({
   );
 
   useEffect(() => {
-    setShowTransfersView(false);
+    setShowTransfersView(initialTransfersSuggestedUi);
+  }, [initialTransfersSuggestedUi]);
+
+  const prevFingerprintRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (prevFingerprintRef.current === null) {
+      prevFingerprintRef.current = expensesDataFingerprint;
+      return;
+    }
+    if (prevFingerprintRef.current !== expensesDataFingerprint) {
+      prevFingerprintRef.current = expensesDataFingerprint;
+      setShowTransfersView(false);
+    }
   }, [expensesDataFingerprint]);
 
   const suggestedTransfers = useMemo(() => {
@@ -243,6 +273,34 @@ export function GroupExpensesSection({
     setIsCreating(false);
     setError(null);
     setShowTransfersView(true);
+    startTransition(async () => {
+      const result = await setGroupTransfersSuggestedUiAction({
+        groupId,
+        value: true,
+      });
+      if (result?.error) {
+        setError(result.error);
+        setShowTransfersView(false);
+        return;
+      }
+      router.refresh();
+    });
+  }
+
+  function closeTransfersView() {
+    setShowTransfersView(false);
+    setError(null);
+    startTransition(async () => {
+      const result = await setGroupTransfersSuggestedUiAction({
+        groupId,
+        value: false,
+      });
+      if (result?.error) {
+        setError(result.error);
+        return;
+      }
+      router.refresh();
+    });
   }
 
   /** Campos comunes al formulario de alta/edición. */
@@ -380,76 +438,34 @@ export function GroupExpensesSection({
     );
   }
 
-  if (showTransfersView) {
-    return (
-      <section
-        className="flex flex-col gap-4 border-t border-border pt-8"
-        aria-label="Transferencias sugeridas"
-      >
-        <h2 className="text-lg font-semibold text-foreground">
-          Transferencias sugeridas
-        </h2>
-        <p className="text-sm text-muted-foreground">
-          Montos mínimos para saldar balances, según los gastos cargados.
-        </p>
-        {suggestedTransfers.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            No hay transferencias pendientes.
-          </p>
-        ) : (
-          <ul className="flex flex-col gap-2">
-            {suggestedTransfers.map((t, index) => (
-              <li
-                key={`${t.fromParticipantId}-${t.toParticipantId}-${index}`}
-                className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm"
-              >
-                <span className="min-w-0 text-left font-medium text-red-700 dark:text-red-400">
-                  {participantNameById(participants, t.fromParticipantId)}
-                </span>
-                <span className="shrink-0 font-semibold tabular-nums text-foreground">
-                  {formatMoney((t.amountCents / 100).toFixed(2), currency)}
-                </span>
-                <span className="min-w-0 text-right font-medium text-green-700 dark:text-green-500">
-                  {participantNameById(participants, t.toParticipantId)}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-        <div className="flex flex-col gap-3 pt-2">
-          <button
-            type="button"
-            onClick={() => {
-              setShowTransfersView(false);
-              setError(null);
-            }}
-            className="w-full rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm font-medium text-foreground hover:bg-muted/50"
-          >
-            Volver a editar
-          </button>
-          <p className="text-xs text-muted-foreground">
-            Si modificás gastos o participantes, este listado deja de mostrarse hasta
-            que vuelvas a usar «Cerrar gastos y sugerir transferencias». Al generarlo de
-            nuevo, se recalcula con los datos actuales.
-          </p>
-        </div>
-      </section>
-    );
-  }
+  const expensesReadOnly = showTransfersView;
 
   return (
     <section
       className="flex flex-col gap-4 border-t border-border pt-8"
       aria-label="Gastos del grupo"
     >
+      {expensesReadOnly ? (
+        <p className="text-sm text-muted-foreground" role="status">
+          Gastos en solo lectura hasta que uses «Volver a editar».
+        </p>
+      ) : null}
+
       <h2 className="text-lg font-semibold text-foreground">Historial de pagos</h2>
 
-      {expenses.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Todavía no hay gastos.</p>
-      ) : (
-        <ul className="flex flex-col gap-2">
-          {expenses.map((row) => {
-            const isEdit = editingId === row.id;
+      <div
+        className={
+          expensesReadOnly
+            ? "pointer-events-none cursor-not-allowed select-none opacity-60"
+            : undefined
+        }
+      >
+        {expenses.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Todavía no hay gastos.</p>
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {expenses.map((row) => {
+            const isEdit = editingId === row.id && !expensesReadOnly;
             const breakdown = splitBreakdownForExpense(row);
             const sharePerPersonStr =
               breakdown.length > 0
@@ -546,12 +562,19 @@ export function GroupExpensesSection({
                 )}
               </li>
             );
-          })}
-        </ul>
-      )}
+            })}
+          </ul>
+        )}
+      </div>
 
-      <div className="pt-2">
-        {isCreating ? (
+      <div
+        className={`pt-2 ${
+          expensesReadOnly
+            ? "pointer-events-none cursor-not-allowed select-none opacity-60"
+            : ""
+        }`}
+      >
+        {isCreating && !expensesReadOnly ? (
           <form
             onSubmit={handleSubmit}
             className={expenseFormCardClass}
@@ -585,7 +608,7 @@ export function GroupExpensesSection({
         ) : (
           <button
             type="button"
-            disabled={pending}
+            disabled={pending || expensesReadOnly}
             onClick={openCreateForm}
             className="w-full rounded-lg border border-dashed border-border bg-muted/30 px-4 py-3 text-sm font-medium text-foreground hover:bg-muted/50 disabled:opacity-50"
           >
@@ -594,16 +617,94 @@ export function GroupExpensesSection({
         )}
       </div>
 
-      <div className="pt-4">
-        <button
-          type="button"
-          disabled={pending}
-          onClick={openTransfersView}
-          className="w-full rounded-lg border border-border bg-card px-4 py-3 text-sm font-medium text-foreground hover:bg-muted/50 disabled:opacity-50"
-        >
-          Cerrar gastos y sugerir transferencias
-        </button>
-      </div>
+      {showTransfersView ? (
+        <div className="flex flex-col gap-4 pt-4">
+          <h2 className="text-lg font-semibold text-foreground" id="transferencias-heading">
+            Transferencias sugeridas
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Montos mínimos para saldar balances, según los gastos cargados.
+          </p>
+          {suggestedTransfers.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No hay transferencias pendientes.
+            </p>
+          ) : (
+            <ul className="flex flex-col gap-2" aria-labelledby="transferencias-heading">
+              {suggestedTransfers.map((t, index) => {
+                const receiverAlias = participantPaymentAliasById(
+                  participants,
+                  t.toParticipantId,
+                );
+                return (
+                  <li
+                    key={`${t.fromParticipantId}-${t.toParticipantId}-${index}`}
+                    className="rounded-lg border border-border bg-card px-3 py-2 text-sm"
+                  >
+                    <div className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)_auto_auto_auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1">
+                      <span className="min-w-0 font-medium text-red-700 dark:text-red-400">
+                        {participantNameById(participants, t.fromParticipantId)}
+                      </span>
+                      <span
+                        className="justify-self-center text-muted-foreground"
+                        aria-hidden
+                      >
+                        →
+                      </span>
+                      <span className="shrink-0 justify-self-center font-semibold tabular-nums text-foreground">
+                        {formatMoney((t.amountCents / 100).toFixed(2), currency)}
+                      </span>
+                      <span
+                        className="justify-self-center text-muted-foreground"
+                        aria-hidden
+                      >
+                        →
+                      </span>
+                      <div className="min-w-0 justify-self-end text-right">
+                        <span className="block font-medium text-green-700 dark:text-green-500">
+                          {participantNameById(participants, t.toParticipantId)}
+                        </span>
+                        {receiverAlias ? (
+                          <p className="mt-0.5 text-xs text-muted-foreground">
+                            Alias: {receiverAlias}
+                          </p>
+                        ) : null}
+                      </div>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          <div className="flex flex-col gap-3 pt-2">
+            <button
+              type="button"
+              onClick={() => {
+                closeTransfersView();
+              }}
+              className="w-full rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm font-medium text-foreground hover:bg-muted/50"
+            >
+              Volver a editar
+            </button>
+            <p className="text-xs text-muted-foreground">
+              Si modificás gastos o participantes, las sugerencias dejan de mostrarse hasta
+              que vuelvas a usar «Cerrar gastos y sugerir transferencias». Al generarlas de
+              nuevo, se recalculan con los datos actuales.
+            </p>
+          </div>
+        </div>
+      ) : (
+        <div className="pt-4">
+          <button
+            type="button"
+            disabled={pending}
+            onClick={openTransfersView}
+            className="w-full rounded-lg border border-border bg-card px-4 py-3 text-sm font-medium text-foreground hover:bg-muted/50 disabled:opacity-50"
+          >
+            Cerrar gastos y sugerir transferencias
+          </button>
+        </div>
+      )}
     </section>
   );
 }

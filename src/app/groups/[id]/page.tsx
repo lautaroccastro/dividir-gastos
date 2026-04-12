@@ -37,7 +37,7 @@ export default async function GroupDetailPage({ params }: Props) {
 
   const { data: group, error } = await supabase
     .from("groups")
-    .select("id, name, currency, created_at")
+    .select("id, name, currency, created_at, transfers_suggested_ui")
     .eq("id", id)
     .eq("user_id", user.id)
     .maybeSingle();
@@ -114,6 +114,7 @@ export default async function GroupDetailPage({ params }: Props) {
         currency={group.currency}
         participants={participants ?? []}
         expenses={expenses}
+        initialTransfersSuggestedUi={Boolean(group.transfers_suggested_ui)}
       />
       <section
         className="border-t border-border pt-8"

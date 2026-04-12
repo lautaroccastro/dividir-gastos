@@ -1,5 +1,6 @@
 "use server";
 
+import { clearGroupTransfersSuggestedUi } from "@/app/actions/group-update";
 import { createClient } from "@/lib/supabase/server";
 import {
   normalizeExpenseTitle,
@@ -140,6 +141,7 @@ export async function createExpenseAction(
     return { error: splitErr.message };
   }
 
+  await clearGroupTransfersSuggestedUi(input.groupId);
   revalidatePath(`/groups/${input.groupId}`);
 }
 
@@ -226,6 +228,7 @@ export async function updateExpenseAction(
     return { error: splitErr.message };
   }
 
+  await clearGroupTransfersSuggestedUi(input.groupId);
   revalidatePath(`/groups/${input.groupId}`);
 }
 
@@ -257,5 +260,6 @@ export async function deleteExpenseAction(input: {
     return { error: delErr.message };
   }
 
+  await clearGroupTransfersSuggestedUi(input.groupId);
   revalidatePath(`/groups/${input.groupId}`);
 }

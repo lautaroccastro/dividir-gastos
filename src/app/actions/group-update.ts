@@ -17,6 +17,47 @@ function revalidateGroup(groupId: string) {
   revalidatePath(`/groups/${groupId}`);
 }
 
+/** Clears the "transferencias sugeridas" UI flag when expenses or participant set changes. */
+export async function clearGroupTransfersSuggestedUi(groupId: string): Promise<void> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+
+  await supabase
+    .from("groups")
+    .update({
+      transfers_suggested_ui: false,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", groupId)
+    .eq("user_id", user.id);
+}
+
+export async function setGroupTransfersSuggestedUiAction(input: {
+  groupId: string;
+  value: boolean;
+}): Promise<{ error: string } | void> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Tenés que iniciar sesión." };
+
+  const { error: updErr } = await supabase
+    .from("groups")
+    .update({
+      transfers_suggested_ui: input.value,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", input.groupId)
+    .eq("user_id", user.id);
+
+  if (updErr) return { error: updErr.message };
+  revalidateGroup(input.groupId);
+}
+
 type RemovalCheck =
   | { ok: true }
   | { ok: false; error: string };
@@ -169,6 +210,7 @@ export async function addParticipantAction(input: {
   });
 
   if (insErr) return { error: insErr.message };
+  await clearGroupTransfersSuggestedUi(input.groupId);
   revalidateGroup(input.groupId);
 }
 
@@ -319,5 +361,6 @@ export async function deleteParticipantAction(input: {
     .eq("group_id", input.groupId);
 
   if (delErr) return { error: delErr.message };
+  await clearGroupTransfersSuggestedUi(input.groupId);
   revalidateGroup(input.groupId);
 }
