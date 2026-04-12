@@ -491,6 +491,7 @@ export function GroupDetailMeta({
           })}
         </ul>
 
+        <div className="mt-6">
         {atParticipantLimit ? (
           <p className="text-xs text-muted-foreground">
             Llegaste al máximo de {PARTICIPANTS_MAX} participantes.
@@ -528,6 +529,7 @@ export function GroupDetailMeta({
             </button>
           </div>
         )}
+        </div>
         </div>
       </section>
     </div>
