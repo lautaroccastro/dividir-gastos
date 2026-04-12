@@ -15,6 +15,8 @@ import {
   todayIso,
   toDateInputValue,
 } from "@/lib/validation/expense";
+import { useGroupTransfersUi } from "@/components/group-transfers-ui-context";
+import { TransfersReadonlyNotice } from "@/components/transfers-readonly-notice";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 
@@ -39,8 +41,6 @@ type Props = {
   currency: string;
   participants: GroupExpenseParticipant[];
   expenses: GroupExpenseRow[];
-  /** From DB: user left the group in "transferencias sugeridas" mode. */
-  initialTransfersSuggestedUi: boolean;
 };
 
 function formatMoney(amountStr: string, currencyCode: string): string {
@@ -87,9 +87,10 @@ export function GroupExpensesSection({
   currency,
   participants,
   expenses,
-  initialTransfersSuggestedUi,
 }: Props) {
   const router = useRouter();
+  const { transfersViewActive: showTransfersView, setTransfersViewActive } =
+    useGroupTransfersUi();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [title, setTitle] = useState("");
@@ -103,9 +104,6 @@ export function GroupExpensesSection({
   });
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
-  const [showTransfersView, setShowTransfersView] = useState(
-    initialTransfersSuggestedUi,
-  );
 
   const orderedParticipantIds = useMemo(
     () =>
@@ -127,10 +125,6 @@ export function GroupExpensesSection({
     [expenses, orderedParticipantIds],
   );
 
-  useEffect(() => {
-    setShowTransfersView(initialTransfersSuggestedUi);
-  }, [initialTransfersSuggestedUi]);
-
   const prevFingerprintRef = useRef<string | null>(null);
   useEffect(() => {
     if (prevFingerprintRef.current === null) {
@@ -139,9 +133,9 @@ export function GroupExpensesSection({
     }
     if (prevFingerprintRef.current !== expensesDataFingerprint) {
       prevFingerprintRef.current = expensesDataFingerprint;
-      setShowTransfersView(false);
+      setTransfersViewActive(false);
     }
-  }, [expensesDataFingerprint]);
+  }, [expensesDataFingerprint, setTransfersViewActive]);
 
   const suggestedTransfers = useMemo(() => {
     const net = computeParticipantNetBalancesCents(expenses, orderedParticipantIds);
@@ -272,7 +266,7 @@ export function GroupExpensesSection({
     setEditingId(null);
     setIsCreating(false);
     setError(null);
-    setShowTransfersView(true);
+    setTransfersViewActive(true);
     startTransition(async () => {
       const result = await setGroupTransfersSuggestedUiAction({
         groupId,
@@ -280,7 +274,7 @@ export function GroupExpensesSection({
       });
       if (result?.error) {
         setError(result.error);
-        setShowTransfersView(false);
+        setTransfersViewActive(false);
         return;
       }
       router.refresh();
@@ -288,7 +282,7 @@ export function GroupExpensesSection({
   }
 
   function closeTransfersView() {
-    setShowTransfersView(false);
+    setTransfersViewActive(false);
     setError(null);
     startTransition(async () => {
       const result = await setGroupTransfersSuggestedUiAction({
@@ -445,13 +439,9 @@ export function GroupExpensesSection({
       className="flex flex-col gap-4 border-t border-border pt-8"
       aria-label="Gastos del grupo"
     >
-      {expensesReadOnly ? (
-        <p className="text-sm text-muted-foreground" role="status">
-          Gastos en solo lectura hasta que uses «Volver a editar».
-        </p>
-      ) : null}
-
       <h2 className="text-lg font-semibold text-foreground">Historial de pagos</h2>
+
+      {expensesReadOnly ? <TransfersReadonlyNotice /> : null}
 
       <div
         className={

@@ -4,6 +4,7 @@ import {
   GroupExpensesSection,
   type GroupExpenseRow,
 } from "@/components/group-expenses-section";
+import { GroupTransfersUiProvider } from "@/components/group-transfers-ui-context";
 import { computeParticipantNetBalancesCents } from "@/lib/expense/balance";
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
@@ -95,27 +96,30 @@ export default async function GroupDetailPage({ params }: Props) {
       >
         ← Mis grupos
       </Link>
-      <GroupDetailMeta
-        groupId={group.id}
-        initialName={group.name}
-        initialCurrency={group.currency as "ARS" | "USD"}
-        initialParticipants={
-          (participants ?? []).map((p) => ({
-            id: p.id,
-            display_name: p.display_name,
-            is_self: p.is_self,
-            payment_alias: p.payment_alias as string | null,
-          }))
-        }
-        initialNetBalanceCentsByParticipantId={netBalanceCentsByParticipantId}
-      />
-      <GroupExpensesSection
-        groupId={group.id}
-        currency={group.currency}
-        participants={participants ?? []}
-        expenses={expenses}
+      <GroupTransfersUiProvider
         initialTransfersSuggestedUi={Boolean(group.transfers_suggested_ui)}
-      />
+      >
+        <GroupDetailMeta
+          groupId={group.id}
+          initialName={group.name}
+          initialCurrency={group.currency as "ARS" | "USD"}
+          initialParticipants={
+            (participants ?? []).map((p) => ({
+              id: p.id,
+              display_name: p.display_name,
+              is_self: p.is_self,
+              payment_alias: p.payment_alias as string | null,
+            }))
+          }
+          initialNetBalanceCentsByParticipantId={netBalanceCentsByParticipantId}
+        />
+        <GroupExpensesSection
+          groupId={group.id}
+          currency={group.currency}
+          participants={participants ?? []}
+          expenses={expenses}
+        />
+      </GroupTransfersUiProvider>
       <section
         className="border-t border-border pt-8"
         aria-label="Eliminar grupo"

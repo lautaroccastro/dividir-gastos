@@ -15,8 +15,10 @@ import {
   SELF_PARTICIPANT_LABEL,
   type CurrencyCode,
 } from "@/lib/validation/group-create";
+import { useGroupTransfersUi } from "@/components/group-transfers-ui-context";
+import { TransfersReadonlyNotice } from "@/components/transfers-readonly-notice";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 
 function formatNetBalanceMoney(cents: number, currencyCode: string): string {
   return new Intl.NumberFormat("es-AR", {
@@ -57,6 +59,7 @@ export function GroupDetailMeta({
   initialNetBalanceCentsByParticipantId,
 }: Props) {
   const router = useRouter();
+  const { transfersViewActive: participantsReadOnly } = useGroupTransfersUi();
   const [pending, startTransition] = useTransition();
 
   const [editingName, setEditingName] = useState(false);
@@ -67,6 +70,14 @@ export function GroupDetailMeta({
   const [participantAliasDraft, setParticipantAliasDraft] = useState("");
   const [addDraft, setAddDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
+
+  const participantControlsDisabled = pending || participantsReadOnly;
+
+  useEffect(() => {
+    if (!participantsReadOnly) return;
+    setEditingParticipantId(null);
+    setAddDraft("");
+  }, [participantsReadOnly]);
 
   function refresh() {
     router.refresh();
@@ -259,17 +270,24 @@ export function GroupDetailMeta({
             </div>
           )}
         </div>
-
-        <p className="text-sm text-muted-foreground">
-          Moneda: <span className="text-foreground">{initialCurrency}</span>
-        </p>
       </div>
 
       <section className="flex flex-col gap-3" aria-label="Participantes">
         <h2 className="text-lg font-semibold text-foreground">Participantes</h2>
-        <p className="text-xs text-muted-foreground">
-          Los participantes nuevos no se agregan solos al reparto de gastos ya cargados.
-        </p>
+        {participantsReadOnly ? (
+          <TransfersReadonlyNotice />
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            Los participantes nuevos no se agregan solos al reparto de gastos ya cargados.
+          </p>
+        )}
+        <div
+          className={
+            participantsReadOnly
+              ? "pointer-events-none cursor-not-allowed select-none opacity-60"
+              : undefined
+          }
+        >
         <ul className="flex flex-col gap-2">
           {initialParticipants.map((p) => {
             const netCents = initialNetBalanceCentsByParticipantId[p.id] ?? 0;
@@ -311,19 +329,20 @@ export function GroupDetailMeta({
                             placeholder="Ej. CVU, alias MP…"
                             autoFocus
                             aria-label="Alias para cobrar"
+                            disabled={participantControlsDisabled}
                           />
                         </div>
                         <div className="flex flex-wrap gap-2">
                           <button
                             type="submit"
-                            disabled={pending}
+                            disabled={participantControlsDisabled}
                             className="text-sm font-medium text-primary disabled:opacity-50"
                           >
                             Guardar
                           </button>
                           <button
                             type="button"
-                            disabled={pending}
+                            disabled={participantControlsDisabled}
                             onClick={cancelParticipantEdit}
                             className="text-sm text-muted-foreground"
                           >
@@ -333,7 +352,7 @@ export function GroupDetailMeta({
                       </form>
                       <button
                         type="button"
-                        disabled={pending}
+                        disabled={participantControlsDisabled}
                         onClick={() => handleDeleteParticipant(p)}
                         className="text-sm text-destructive-foreground hover:underline disabled:opacity-50"
                       >
@@ -357,7 +376,7 @@ export function GroupDetailMeta({
                       </div>
                       <button
                         type="button"
-                        disabled={pending}
+                        disabled={participantControlsDisabled}
                         onClick={() => startEditParticipant(p)}
                         className="text-sm text-primary hover:underline disabled:opacity-50"
                       >
@@ -365,7 +384,7 @@ export function GroupDetailMeta({
                       </button>
                       <button
                         type="button"
-                        disabled={pending}
+                        disabled={participantControlsDisabled}
                         onClick={() => handleDeleteParticipant(p)}
                         className="text-sm text-destructive-foreground hover:underline disabled:opacity-50"
                       >
@@ -388,6 +407,7 @@ export function GroupDetailMeta({
                         autoFocus
                         required
                         aria-label="Nombre del participante"
+                        disabled={participantControlsDisabled}
                       />
                       <div className="flex flex-col gap-1">
                         <label
@@ -405,19 +425,20 @@ export function GroupDetailMeta({
                           className="rounded border border-input bg-background px-2 py-1 text-sm"
                           placeholder="Ej. CVU, alias MP…"
                           aria-label="Alias para cobrar"
+                          disabled={participantControlsDisabled}
                         />
                       </div>
                       <div className="flex flex-wrap gap-2">
                         <button
                           type="submit"
-                          disabled={pending}
+                          disabled={participantControlsDisabled}
                           className="text-sm font-medium text-primary disabled:opacity-50"
                         >
                           Guardar
                         </button>
                         <button
                           type="button"
-                          disabled={pending}
+                          disabled={participantControlsDisabled}
                           onClick={cancelParticipantEdit}
                           className="text-sm text-muted-foreground"
                         >
@@ -427,7 +448,7 @@ export function GroupDetailMeta({
                     </form>
                     <button
                       type="button"
-                      disabled={pending}
+                      disabled={participantControlsDisabled}
                       onClick={() => handleDeleteParticipant(p)}
                       className="text-sm text-destructive-foreground hover:underline disabled:opacity-50"
                     >
@@ -449,7 +470,7 @@ export function GroupDetailMeta({
                     </div>
                     <button
                       type="button"
-                      disabled={pending}
+                      disabled={participantControlsDisabled}
                       onClick={() => startEditParticipant(p)}
                       className="text-sm text-primary hover:underline disabled:opacity-50"
                     >
@@ -457,7 +478,7 @@ export function GroupDetailMeta({
                     </button>
                     <button
                       type="button"
-                      disabled={pending}
+                      disabled={participantControlsDisabled}
                       onClick={() => handleDeleteParticipant(p)}
                       className="text-sm text-destructive-foreground hover:underline disabled:opacity-50"
                     >
@@ -494,11 +515,12 @@ export function GroupDetailMeta({
                 }}
                 placeholder="Nombre"
                 className="rounded-lg border border-input bg-background px-3 py-2 text-foreground"
+                disabled={participantControlsDisabled}
               />
             </div>
             <button
               type="button"
-              disabled={pending}
+              disabled={participantControlsDisabled}
               onClick={handleAddParticipant}
               className="h-10 shrink-0 rounded-lg border border-dashed border-border bg-muted/30 px-4 text-sm font-medium text-foreground hover:bg-muted/50 disabled:opacity-50"
             >
@@ -506,6 +528,7 @@ export function GroupDetailMeta({
             </button>
           </div>
         )}
+        </div>
       </section>
     </div>
   );
