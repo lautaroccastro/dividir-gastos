@@ -80,6 +80,16 @@ export function formatExpenseDateDdMmYy(isoDate: string): string {
   return `${dd}-${mm}-${yy}`;
 }
 
+/** Formats an ISO date (YYYY-MM-DD) as DD-MM-YYYY for display. */
+export function formatExpenseDateDdMmYyyy(isoDate: string): string {
+  const m = isoDate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return isoDate;
+  const yyyy = m[1];
+  const mm = m[2];
+  const dd = m[3];
+  return `${dd}-${mm}-${yyyy}`;
+}
+
 /** Today's local date as YYYY-MM-DD for `<input type="date">`. */
 export function todayIso(): string {
   const d = new Date();

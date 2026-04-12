@@ -1,9 +1,10 @@
 import { DeleteGroupButton } from "@/components/delete-group-button";
-import { EditGroupSection } from "@/components/edit-group-section";
+import { GroupDetailMeta } from "@/components/group-detail-meta";
 import {
   GroupExpensesSection,
   type GroupExpenseRow,
 } from "@/components/group-expenses-section";
+import { computeParticipantNetBalancesCents } from "@/lib/expense/balance";
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -81,21 +82,20 @@ export default async function GroupDetailPage({ params }: Props) {
     }),
   ) ?? [];
 
+  const participantIdsOrdered = (participants ?? []).map((p) => p.id);
+  const netBalanceCentsByParticipantId = Object.fromEntries(
+    computeParticipantNetBalancesCents(expenses, participantIdsOrdered),
+  );
+
   return (
-    <div className="mx-auto flex min-h-screen max-w-2xl flex-col gap-8 px-4 py-10">
-      <header className="flex flex-col gap-2 border-b border-border pb-4">
-        <Link
-          href="/"
-          className="text-sm text-muted-foreground hover:text-foreground"
-        >
-          ← Mis grupos
-        </Link>
-        <h1 className="text-2xl font-semibold text-foreground">{group.name}</h1>
-        <p className="text-sm text-muted-foreground">
-          Moneda: <span className="text-foreground">{group.currency}</span>
-        </p>
-      </header>
-      <EditGroupSection
+    <div className="mx-auto flex min-h-screen max-w-2xl flex-col gap-6 px-4 py-10">
+      <Link
+        href="/"
+        className="text-sm text-muted-foreground hover:text-foreground"
+      >
+        ← Mis grupos
+      </Link>
+      <GroupDetailMeta
         groupId={group.id}
         initialName={group.name}
         initialCurrency={group.currency as "ARS" | "USD"}
@@ -106,6 +106,7 @@ export default async function GroupDetailPage({ params }: Props) {
             is_self: p.is_self,
           }))
         }
+        initialNetBalanceCentsByParticipantId={netBalanceCentsByParticipantId}
       />
       <GroupExpensesSection
         groupId={group.id}

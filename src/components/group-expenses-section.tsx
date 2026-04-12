@@ -8,7 +8,7 @@ import {
 import { amountToCents, splitAmountCentsEvenly } from "@/lib/expense/split";
 import {
   EXPENSE_TITLE_MAX,
-  formatExpenseDateDdMmYy,
+  formatExpenseDateDdMmYyyy,
   todayIso,
   toDateInputValue,
 } from "@/lib/validation/expense";
@@ -85,7 +85,6 @@ export function GroupExpensesSection({
   });
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
-  const [detailExpenseId, setDetailExpenseId] = useState<string | null>(null);
 
   const orderedParticipantIds = useMemo(
     () =>
@@ -113,7 +112,6 @@ export function GroupExpensesSection({
   }
 
   function loadExpenseForEdit(row: GroupExpenseRow) {
-    setDetailExpenseId(null);
     setIsCreating(false);
     setEditingId(row.id);
     setTitle(row.title);
@@ -195,12 +193,10 @@ export function GroupExpensesSection({
         return;
       }
       if (editingId === id) resetAfterSuccess();
-      if (detailExpenseId === id) setDetailExpenseId(null);
     });
   }
 
   function openCreateForm() {
-    setDetailExpenseId(null);
     setEditingId(null);
     resetFieldsForNew();
     setIsCreating(true);
@@ -218,14 +214,7 @@ export function GroupExpensesSection({
     setError(null);
   }
 
-  function openDetail(rowId: string) {
-    setEditingId(null);
-    setIsCreating(false);
-    setError(null);
-    setDetailExpenseId(rowId);
-  }
-
-  /** Campos comunes al formulario de alta/edición (misma jerarquía que el detalle). */
+  /** Campos comunes al formulario de alta/edición. */
   function expenseFormFields(prefix: string) {
     return (
       <>
@@ -349,24 +338,35 @@ export function GroupExpensesSection({
 
   if (participants.length === 0) {
     return (
-      <p className="text-sm text-muted-foreground">
-        Agregá participantes al grupo para poder cargar gastos.
-      </p>
+      <section
+        className="border-t border-border pt-8"
+        aria-label="Gastos del grupo"
+      >
+        <p className="text-sm text-muted-foreground">
+          Agregá participantes al grupo para poder cargar gastos.
+        </p>
+      </section>
     );
   }
 
   return (
-    <section className="flex flex-col gap-4" aria-label="Gastos del grupo">
-      <h2 className="text-lg font-semibold text-foreground">Historial</h2>
+    <section
+      className="flex flex-col gap-4 border-t border-border pt-8"
+      aria-label="Gastos del grupo"
+    >
+      <h2 className="text-lg font-semibold text-foreground">Historial de pagos</h2>
 
       {expenses.length === 0 ? (
         <p className="text-sm text-muted-foreground">Todavía no hay gastos.</p>
       ) : (
         <ul className="flex flex-col gap-2">
           {expenses.map((row) => {
-            const isDetail = detailExpenseId === row.id;
             const isEdit = editingId === row.id;
-            const breakdown = isDetail && !isEdit ? splitBreakdownForExpense(row) : [];
+            const breakdown = splitBreakdownForExpense(row);
+            const sharePerPersonStr =
+              breakdown.length > 0
+                ? formatMoney((breakdown[0]!.shareCents / 100).toFixed(2), currency)
+                : "";
 
             return (
               <li key={row.id}>
@@ -400,91 +400,61 @@ export function GroupExpensesSection({
                       </button>
                     </div>
                   </form>
-                ) : isDetail ? (
-                  <div
-                    className={expenseFormCardClass}
-                    role="region"
-                    aria-label={`Detalle de ${row.title}`}
-                  >
-                    <div className="flex flex-col gap-1 border-b border-border pb-3">
-                      <h3 className="text-base font-semibold text-foreground">{row.title}</h3>
-                      <p className="text-sm text-muted-foreground">
-                        {formatExpenseDateDdMmYy(row.expense_date)}
-                      </p>
-                      <p className="text-lg font-semibold tabular-nums text-foreground">
-                        {formatMoney(row.amount, currency)}
-                      </p>
-                      <p className="text-sm text-foreground">
-                        Pagó:{" "}
-                        <span className="font-medium">
-                          {participantNameById(participants, row.paid_by_participant_id)}
-                        </span>
-                      </p>
-                    </div>
-                    <div className="pt-3">
-                      <p className="text-sm font-medium text-foreground">Reparto</p>
-                      {breakdown.length === 0 ? (
-                        <p className="mt-1 text-sm text-muted-foreground">Sin reparto.</p>
-                      ) : (
-                        <ul className="mt-2 flex flex-col gap-2">
-                          {breakdown.map((line) => (
-                            <li
-                              key={line.id}
-                              className="flex items-center justify-between gap-3 text-sm"
-                            >
-                              <span className="text-foreground">{line.name}</span>
-                              <span className="font-medium tabular-nums text-foreground">
-                                {formatMoney((line.shareCents / 100).toFixed(2), currency)}
-                              </span>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                    <div className="mt-4 flex flex-wrap gap-2 border-t border-border pt-4">
-                      <button
-                        type="button"
-                        disabled={pending}
-                        onClick={() => loadExpenseForEdit(row)}
-                        className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
-                      >
-                        Editar
-                      </button>
-                      <button
-                        type="button"
-                        disabled={pending}
-                        onClick={() => handleDelete(row.id)}
-                        className="rounded-md border border-destructive-border bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground hover:opacity-90 disabled:opacity-50"
-                      >
-                        Borrar
-                      </button>
-                      <button
-                        type="button"
-                        disabled={pending}
-                        onClick={() => setDetailExpenseId(null)}
-                        className="rounded-md border border-border bg-background px-4 py-2 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-50"
-                      >
-                        Cerrar
-                      </button>
-                    </div>
-                  </div>
                 ) : (
-                  <button
-                    type="button"
-                    disabled={pending}
-                    onClick={() => openDetail(row.id)}
-                    className="flex w-full items-start justify-between gap-3 rounded-lg border border-border bg-card px-4 py-3 text-left transition-colors hover:bg-muted/50 disabled:opacity-50"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <span className="block font-medium text-card-foreground">{row.title}</span>
-                      <span className="mt-0.5 block text-sm text-muted-foreground">
-                        {formatExpenseDateDdMmYy(row.expense_date)}
+                  <div className="rounded-lg border border-border bg-card px-4 py-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <span className="block font-medium text-card-foreground">
+                          {row.title}{" "}
+                          <span className="font-normal text-muted-foreground">
+                            ({participantNameById(participants, row.paid_by_participant_id)})
+                          </span>
+                        </span>
+                      </div>
+                      <span className="shrink-0 text-lg font-semibold tabular-nums text-card-foreground">
+                        {formatMoney(row.amount, currency)}
                       </span>
                     </div>
-                    <span className="shrink-0 text-lg font-semibold tabular-nums text-card-foreground">
-                      {formatMoney(row.amount, currency)}
-                    </span>
-                  </button>
+                    {breakdown.length === 0 ? (
+                      <p className="mt-2 text-sm text-muted-foreground">Sin reparto.</p>
+                    ) : (
+                      <>
+                        <p className="mt-2 text-sm text-muted-foreground">
+                          {breakdown.length === 1
+                            ? `1 participante: ${sharePerPersonStr}`
+                            : `${breakdown.length} participantes: ${sharePerPersonStr} cada uno`}
+                        </p>
+                        <ul className="mt-1 list-disc space-y-0.5 pl-5 text-sm text-foreground marker:text-muted-foreground">
+                          {breakdown.map((line) => (
+                            <li key={line.id}>{line.name}</li>
+                          ))}
+                        </ul>
+                      </>
+                    )}
+                    <div className="mt-2 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+                      <span className="text-sm text-muted-foreground">
+                        Pagado el {formatExpenseDateDdMmYyyy(row.expense_date)}
+                      </span>
+                      <div className="flex shrink-0 gap-4">
+                        <button
+                          type="button"
+                          disabled={pending}
+                          onClick={() => loadExpenseForEdit(row)}
+                          className="text-sm text-muted-foreground underline decoration-muted-foreground/70 underline-offset-2 hover:text-foreground disabled:opacity-50"
+                        >
+                          Editar
+                        </button>
+                        <button
+                          type="button"
+                          disabled={pending}
+                          onClick={() => handleDelete(row.id)}
+                          className="text-sm font-medium text-red-700 underline decoration-red-700 underline-offset-2 hover:text-red-800 dark:text-red-500 dark:decoration-red-500 dark:hover:text-red-400 disabled:opacity-50"
+                        >
+                          Borrar
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 )}
               </li>
             );
