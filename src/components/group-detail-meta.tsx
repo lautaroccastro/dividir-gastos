@@ -288,6 +288,7 @@ export function GroupDetailMeta({
               : undefined
           }
         >
+        <div className="flex flex-col gap-2">
         <ul className="flex flex-col gap-2">
           {initialParticipants.map((p) => {
             const netCents = initialNetBalanceCentsByParticipantId[p.id] ?? 0;
@@ -491,7 +492,6 @@ export function GroupDetailMeta({
           })}
         </ul>
 
-        <div className="mt-6">
         {atParticipantLimit ? (
           <p className="text-xs text-muted-foreground">
             Llegaste al máximo de {PARTICIPANTS_MAX} participantes.

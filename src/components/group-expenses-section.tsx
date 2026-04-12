@@ -193,6 +193,13 @@ export function GroupExpensesSection({
     }));
   }
 
+  /** Reparto = todos los participantes actuales del grupo (no mostrar listado de nombres). */
+  function isSplitAmongAllGroupParticipants(row: GroupExpenseRow): boolean {
+    if (orderedParticipantIds.length === 0) return false;
+    const splitSet = new Set(row.splitParticipantIds);
+    return orderedParticipantIds.every((id) => splitSet.has(id));
+  }
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!editingId && !isCreating) return;
@@ -461,6 +468,7 @@ export function GroupExpensesSection({
               breakdown.length > 0
                 ? formatMoney((breakdown[0]!.shareCents / 100).toFixed(2), currency)
                 : "";
+            const splitAmongAll = isSplitAmongAllGroupParticipants(row);
 
             return (
               <li key={row.id}>
@@ -511,6 +519,12 @@ export function GroupExpensesSection({
                     </div>
                     {breakdown.length === 0 ? (
                       <p className="mt-2 text-sm text-muted-foreground">Sin reparto.</p>
+                    ) : splitAmongAll ? (
+                      <p className="mt-2 text-sm text-muted-foreground">
+                        {breakdown.length === 1
+                          ? `Todos: ${sharePerPersonStr}`
+                          : `Todos: ${sharePerPersonStr} cada uno`}
+                      </p>
                     ) : (
                       <>
                         <p className="mt-2 text-sm text-muted-foreground">

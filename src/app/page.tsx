@@ -15,28 +15,15 @@ export default async function Home() {
 
   const { data: groups } = await supabase
     .from("groups")
-    .select("id, name, currency, created_at")
+    .select("id, name, created_at")
     .order("created_at", { ascending: true });
 
   return (
-    <div className="mx-auto flex min-h-screen max-w-2xl flex-col gap-8 px-4 py-12">
-      <header className="flex flex-col gap-3 border-b border-border pb-6">
-        <div className="flex w-full min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-2">
-          <span className="min-w-0 truncate text-sm text-foreground">
-            <span className="font-medium">{user.email}</span>
-          </span>
-          <form action={signOut} className="shrink-0">
-            <button
-              type="submit"
-              className="text-sm text-muted-foreground underline hover:text-foreground"
-            >
-              Cerrar sesión
-            </button>
-          </form>
-        </div>
-      </header>
-
-      <section className="flex flex-col gap-4">
+    <div className="mx-auto flex min-h-screen max-w-2xl flex-col px-4 py-12">
+      <section
+        className="flex flex-1 flex-col gap-4"
+        aria-label="Tus grupos"
+      >
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-2xl font-semibold text-foreground">Mis grupos</h1>
           <Link
@@ -57,13 +44,10 @@ export default async function Home() {
               <li key={g.id}>
                 <Link
                   href={`/groups/${g.id}`}
-                  className="flex min-w-0 flex-col gap-1 rounded-lg border border-border bg-card px-4 py-3 transition-colors hover:bg-muted/50 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
+                  className="block rounded-lg border border-border bg-card px-4 py-3 transition-colors hover:bg-muted/50"
                 >
-                  <span className="min-w-0 truncate font-medium text-card-foreground">
+                  <span className="break-words font-medium text-card-foreground">
                     {g.name}
-                  </span>
-                  <span className="shrink-0 text-sm text-muted-foreground">
-                    {g.currency}
                   </span>
                 </Link>
               </li>
@@ -71,6 +55,22 @@ export default async function Home() {
           </ul>
         )}
       </section>
+
+      <footer className="mt-auto border-t border-border pt-4">
+        <div className="flex w-full min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-2">
+          <span className="min-w-0 truncate text-sm text-foreground">
+            <span className="font-medium">{user.email}</span>
+          </span>
+          <form action={signOut} className="shrink-0">
+            <button
+              type="submit"
+              className="text-sm text-muted-foreground underline hover:text-foreground"
+            >
+              Cerrar sesión
+            </button>
+          </form>
+        </div>
+      </footer>
     </div>
   );
 }
