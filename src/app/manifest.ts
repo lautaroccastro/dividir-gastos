@@ -6,8 +6,8 @@ import type { MetadataRoute } from "next";
  */
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Dividir gastos",
-    short_name: "Dividir gastos",
+    name: "Dividir Gastos",
+    short_name: "Dividir Gastos",
     description: "Dividí gastos con tu grupo",
     start_url: "/",
     display: "standalone",

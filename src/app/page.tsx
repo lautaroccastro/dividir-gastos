@@ -13,10 +13,22 @@ export default async function Home() {
     redirect("/login");
   }
 
-  const { data: groups } = await supabase
+  const { data: groupsRaw } = await supabase
     .from("groups")
-    .select("id, name, created_at")
+    .select(
+      "id, name, created_at, transfers_suggested_ui, participants(count)",
+    )
     .order("created_at", { ascending: true });
+
+  type GroupRow = {
+    id: string;
+    name: string;
+    created_at: string;
+    transfers_suggested_ui: boolean;
+    participants: { count: number }[] | null;
+  };
+
+  const groups = (groupsRaw ?? []) as GroupRow[];
 
   return (
     <div className="mx-auto flex min-h-screen max-w-2xl flex-col px-4 py-12">
@@ -34,24 +46,55 @@ export default async function Home() {
           </Link>
         </div>
 
-        {!groups?.length ? (
+        {!groups.length ? (
           <p className="rounded-lg border border-border bg-card px-4 py-6 text-sm text-muted-foreground">
             Todavía no tenés grupos. Creá uno para empezar a cargar gastos.
           </p>
         ) : (
           <ul className="flex flex-col gap-2">
-            {groups.map((g) => (
-              <li key={g.id}>
-                <Link
-                  href={`/groups/${g.id}`}
-                  className="block rounded-lg border border-border bg-card px-4 py-3 transition-colors hover:bg-muted/50"
-                >
-                  <span className="break-words font-medium text-card-foreground">
-                    {g.name}
-                  </span>
-                </Link>
-              </li>
-            ))}
+            {groups.map((g) => {
+              const participantCount = Number(
+                g.participants?.[0]?.count ?? 0,
+              );
+              const createdLabel = new Date(g.created_at).toLocaleDateString(
+                "es-AR",
+                {
+                  day: "numeric",
+                  month: "short",
+                  year: "numeric",
+                },
+              );
+              const modeLabel = g.transfers_suggested_ui
+                ? "Transferencias sugeridas"
+                : "En edición";
+
+              return (
+                <li key={g.id}>
+                  <Link
+                    href={`/groups/${g.id}`}
+                    className="block rounded-lg border border-border bg-card px-4 py-3 transition-colors hover:bg-muted/50"
+                  >
+                    <span className="break-words font-medium text-card-foreground">
+                      {g.name}
+                    </span>
+                    <p className="mt-1.5 text-xs leading-snug text-muted-foreground">
+                      {participantCount}{" "}
+                      {participantCount === 1
+                        ? "participante"
+                        : "participantes"}{" "}
+                      <span aria-hidden className="text-muted-foreground/70">
+                        ·
+                      </span>{" "}
+                      Creado {createdLabel}{" "}
+                      <span aria-hidden className="text-muted-foreground/70">
+                        ·
+                      </span>{" "}
+                      {modeLabel}
+                    </p>
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>

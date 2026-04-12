@@ -697,9 +697,7 @@ export function GroupExpensesSection({
                 Volver a editar
               </button>
               <p className="text-xs text-muted-foreground">
-                Si modificás gastos o participantes, las sugerencias dejan de mostrarse hasta
-                que vuelvas a usar «Cerrar gastos y sugerir transferencias». Al generarlas de
-                nuevo, se recalculan con los datos actuales.
+                Si editas gastos o participantes, las transferencias se vuelven a calcular.
               </p>
             </div>
           </>

@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Dividir gastos",
+  title: "Dividir Gastos",
   description: "Dividí gastos con tu grupo",
   icons: {
     icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
@@ -21,7 +21,7 @@ export const metadata: Metadata = {
   },
   appleWebApp: {
     capable: true,
-    title: "Dividir gastos",
+    title: "Dividir Gastos",
   },
 };
 
