@@ -92,8 +92,9 @@ export async function createGroupAction(
 }
 
 /**
- * Deletes the group and all dependent rows (participants, expenses, splits) via ON DELETE CASCADE.
- * Only succeeds if the group belongs to the current user (RLS + explicit filter).
+ * Deletes the group and dependent rows. Postgres cannot CASCADE-delete `participants`
+ * before `expenses` when `expense_split_participants` references both; we delete
+ * expenses first so splits and paid_by references disappear, then the group (CASCADE participants).
  */
 export async function deleteGroupAction(
   groupId: string,
@@ -104,6 +105,26 @@ export async function deleteGroupAction(
   } = await supabase.auth.getUser();
   if (!user) {
     return { error: "Tenés que iniciar sesión." };
+  }
+
+  const { data: owned } = await supabase
+    .from("groups")
+    .select("id")
+    .eq("id", groupId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (!owned) {
+    return { error: "No se encontró el grupo." };
+  }
+
+  const { error: expErr } = await supabase
+    .from("expenses")
+    .delete()
+    .eq("group_id", groupId);
+
+  if (expErr) {
+    return { error: expErr.message };
   }
 
   const { data: deleted, error: delErr } = await supabase
