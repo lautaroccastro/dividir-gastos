@@ -5,8 +5,10 @@ import { formatGroupName, formatParticipantName } from "@/lib/text/format-names"
 import {
   PARTICIPANTS_MAX,
   SELF_PARTICIPANT_LABEL,
+  normalizePaymentAlias,
   validateRawGroupName,
   validateRawParticipantName,
+  validateRawPaymentAlias,
 } from "@/lib/validation/group-create";
 import { revalidatePath } from "next/cache";
 
@@ -174,9 +176,16 @@ export async function updateParticipantNameAction(input: {
   groupId: string;
   participantId: string;
   rawDisplayName: string;
+  /** When set, `payment_alias` is updated together with the name (non–self participants). */
+  rawPaymentAlias?: string;
 }): Promise<{ error: string } | void> {
   const nameErr = validateRawParticipantName(input.rawDisplayName);
   if (nameErr) return { error: nameErr };
+
+  if (input.rawPaymentAlias !== undefined) {
+    const aliasErr = validateRawPaymentAlias(input.rawPaymentAlias);
+    if (aliasErr) return { error: aliasErr };
+  }
 
   const formatted = formatParticipantName(input.rawDisplayName);
   const supabase = await createClient();
@@ -214,9 +223,49 @@ export async function updateParticipantNameAction(input: {
   const dup = others.some((p) => p.display_name.trim().toLowerCase() === lower);
   if (dup) return { error: "Ya hay un participante con ese nombre (ignorando mayúsculas)." };
 
+  const updatePayload: { display_name: string; payment_alias?: string | null } = {
+    display_name: formatted,
+  };
+  if (input.rawPaymentAlias !== undefined) {
+    updatePayload.payment_alias = normalizePaymentAlias(input.rawPaymentAlias);
+  }
+
   const { error: uErr } = await supabase
     .from("participants")
-    .update({ display_name: formatted })
+    .update(updatePayload)
+    .eq("id", input.participantId)
+    .eq("group_id", input.groupId);
+
+  if (uErr) return { error: uErr.message };
+  revalidateGroup(input.groupId);
+}
+
+export async function updateParticipantPaymentAliasAction(input: {
+  groupId: string;
+  participantId: string;
+  rawPaymentAlias: string;
+}): Promise<{ error: string } | void> {
+  const aliasErr = validateRawPaymentAlias(input.rawPaymentAlias);
+  if (aliasErr) return { error: aliasErr };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Tenés que iniciar sesión." };
+
+  const { data: row, error: pErr } = await supabase
+    .from("participants")
+    .select("id, group_id")
+    .eq("id", input.participantId)
+    .eq("group_id", input.groupId)
+    .maybeSingle();
+
+  if (pErr || !row) return { error: "No se encontró el participante." };
+
+  const { error: uErr } = await supabase
+    .from("participants")
+    .update({ payment_alias: normalizePaymentAlias(input.rawPaymentAlias) })
     .eq("id", input.participantId)
     .eq("group_id", input.groupId);
 

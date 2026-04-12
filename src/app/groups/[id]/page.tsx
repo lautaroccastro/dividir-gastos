@@ -48,7 +48,7 @@ export default async function GroupDetailPage({ params }: Props) {
 
   const { data: participants } = await supabase
     .from("participants")
-    .select("id, display_name, sort_order, is_self")
+    .select("id, display_name, sort_order, is_self, payment_alias")
     .eq("group_id", id)
     .order("sort_order", { ascending: true })
     .order("id", { ascending: true });
@@ -104,6 +104,7 @@ export default async function GroupDetailPage({ params }: Props) {
             id: p.id,
             display_name: p.display_name,
             is_self: p.is_self,
+            payment_alias: p.payment_alias as string | null,
           }))
         }
         initialNetBalanceCentsByParticipantId={netBalanceCentsByParticipantId}

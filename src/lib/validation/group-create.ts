@@ -5,6 +5,8 @@ import {
 
 export const GROUP_NAME_MAX = 50;
 export const PARTICIPANT_NAME_MAX = 25;
+/** Optional free-text alias for how this participant receives money (CBU, alias MP, etc.). */
+export const PARTICIPANT_PAYMENT_ALIAS_MAX = 50;
 export const PARTICIPANTS_MAX = 50;
 export const CURRENCIES = ["ARS", "USD"] as const;
 export type CurrencyCode = (typeof CURRENCIES)[number];
@@ -43,6 +45,21 @@ export function validateRawParticipantName(raw: string): string | null {
     return `Cada nombre no puede superar ${PARTICIPANT_NAME_MAX} caracteres.`;
   }
   return null;
+}
+
+/** Validates optional payment alias; empty after trim is allowed (clears the field). */
+export function validateRawPaymentAlias(raw: string): string | null {
+  const t = raw.trim();
+  if (t.length > PARTICIPANT_PAYMENT_ALIAS_MAX) {
+    return `El alias no puede superar ${PARTICIPANT_PAYMENT_ALIAS_MAX} caracteres.`;
+  }
+  return null;
+}
+
+/** Stored value: null when empty / whitespace-only. */
+export function normalizePaymentAlias(raw: string): string | null {
+  const t = raw.trim();
+  return t.length ? t : null;
 }
 
 /**

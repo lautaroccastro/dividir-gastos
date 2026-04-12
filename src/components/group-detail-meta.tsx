@@ -5,10 +5,12 @@ import {
   deleteParticipantAction,
   updateGroupNameAction,
   updateParticipantNameAction,
+  updateParticipantPaymentAliasAction,
 } from "@/app/actions/group-update";
 import {
   GROUP_NAME_MAX,
   PARTICIPANT_NAME_MAX,
+  PARTICIPANT_PAYMENT_ALIAS_MAX,
   PARTICIPANTS_MAX,
   SELF_PARTICIPANT_LABEL,
   type CurrencyCode,
@@ -36,6 +38,7 @@ type ParticipantRow = {
   id: string;
   display_name: string;
   is_self: boolean;
+  payment_alias: string | null;
 };
 
 type Props = {
@@ -61,6 +64,7 @@ export function GroupDetailMeta({
 
   const [editingParticipantId, setEditingParticipantId] = useState<string | null>(null);
   const [participantNameDraft, setParticipantNameDraft] = useState("");
+  const [participantAliasDraft, setParticipantAliasDraft] = useState("");
   const [addDraft, setAddDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
 
@@ -86,21 +90,52 @@ export function GroupDetailMeta({
   }
 
   function startEditParticipant(p: ParticipantRow) {
-    if (p.is_self) return;
     setEditingParticipantId(p.id);
-    setParticipantNameDraft(p.display_name);
+    setParticipantAliasDraft(p.payment_alias ?? "");
+    if (!p.is_self) {
+      setParticipantNameDraft(p.display_name);
+    }
     setError(null);
   }
 
-  function submitParticipantName(e: React.FormEvent) {
+  function cancelParticipantEdit() {
+    setEditingParticipantId(null);
+    setError(null);
+  }
+
+  function submitParticipantEdit(e: React.FormEvent) {
     e.preventDefault();
     if (!editingParticipantId) return;
+    const row = initialParticipants.find((x) => x.id === editingParticipantId);
+    if (!row || row.is_self) return;
     setError(null);
     startTransition(async () => {
       const result = await updateParticipantNameAction({
         groupId,
         participantId: editingParticipantId,
         rawDisplayName: participantNameDraft,
+        rawPaymentAlias: participantAliasDraft,
+      });
+      if (result?.error) {
+        setError(result.error);
+        return;
+      }
+      setEditingParticipantId(null);
+      refresh();
+    });
+  }
+
+  function submitSelfPaymentAlias(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editingParticipantId) return;
+    const row = initialParticipants.find((x) => x.id === editingParticipantId);
+    if (!row?.is_self) return;
+    setError(null);
+    startTransition(async () => {
+      const result = await updateParticipantPaymentAliasAction({
+        groupId,
+        participantId: editingParticipantId,
+        rawPaymentAlias: participantAliasDraft,
       });
       if (result?.error) {
         setError(result.error);
@@ -250,59 +285,145 @@ export function GroupDetailMeta({
             return (
               <li
                 key={p.id}
-                className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card px-3 py-2"
+                className="flex flex-wrap items-start gap-2 rounded-lg border border-border bg-card px-3 py-2"
               >
                 {p.is_self ? (
-                  <>
-                    <div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-1.5">
-                      <span className="min-w-0 font-medium text-card-foreground">
-                        {SELF_PARTICIPANT_LABEL}
-                      </span>
-                      {balanceEl}
-                    </div>
-                    <button
-                      type="button"
-                      disabled={pending}
-                      onClick={() => handleDeleteParticipant(p)}
-                      className="text-sm text-destructive-foreground hover:underline disabled:opacity-50"
-                    >
-                      Borrar
-                    </button>
-                  </>
+                  editingParticipantId === p.id ? (
+                    <>
+                      <form
+                        onSubmit={submitSelfPaymentAlias}
+                        className="flex min-w-0 flex-1 flex-col gap-2"
+                      >
+                        <div className="flex flex-col gap-1">
+                          <label
+                            htmlFor={`self-alias-${p.id}`}
+                            className="text-xs text-muted-foreground"
+                          >
+                            Alias para cobrar (opcional)
+                          </label>
+                          <input
+                            id={`self-alias-${p.id}`}
+                            type="text"
+                            maxLength={PARTICIPANT_PAYMENT_ALIAS_MAX}
+                            value={participantAliasDraft}
+                            onChange={(e) => setParticipantAliasDraft(e.target.value)}
+                            className="rounded border border-input bg-background px-2 py-1 text-sm"
+                            placeholder="Ej. CVU, alias MP…"
+                            autoFocus
+                            aria-label="Alias para cobrar"
+                          />
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="submit"
+                            disabled={pending}
+                            className="text-sm font-medium text-primary disabled:opacity-50"
+                          >
+                            Guardar
+                          </button>
+                          <button
+                            type="button"
+                            disabled={pending}
+                            onClick={cancelParticipantEdit}
+                            className="text-sm text-muted-foreground"
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      </form>
+                      <button
+                        type="button"
+                        disabled={pending}
+                        onClick={() => handleDeleteParticipant(p)}
+                        className="text-sm text-destructive-foreground hover:underline disabled:opacity-50"
+                      >
+                        Borrar
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                        <div className="flex flex-wrap items-baseline gap-1.5">
+                          <span className="min-w-0 font-medium text-card-foreground">
+                            {SELF_PARTICIPANT_LABEL}
+                          </span>
+                          {balanceEl}
+                        </div>
+                        {p.payment_alias ? (
+                          <p className="text-xs text-muted-foreground">
+                            Alias: {p.payment_alias}
+                          </p>
+                        ) : null}
+                      </div>
+                      <button
+                        type="button"
+                        disabled={pending}
+                        onClick={() => startEditParticipant(p)}
+                        className="text-sm text-primary hover:underline disabled:opacity-50"
+                      >
+                        Editar
+                      </button>
+                      <button
+                        type="button"
+                        disabled={pending}
+                        onClick={() => handleDeleteParticipant(p)}
+                        className="text-sm text-destructive-foreground hover:underline disabled:opacity-50"
+                      >
+                        Borrar
+                      </button>
+                    </>
+                  )
                 ) : editingParticipantId === p.id ? (
                   <>
                     <form
-                      onSubmit={submitParticipantName}
-                      className="flex min-w-0 flex-1 flex-wrap items-baseline gap-2"
+                      onSubmit={submitParticipantEdit}
+                      className="flex min-w-0 flex-1 flex-col gap-2"
                     >
                       <input
                         type="text"
                         maxLength={PARTICIPANT_NAME_MAX}
                         value={participantNameDraft}
                         onChange={(e) => setParticipantNameDraft(e.target.value)}
-                        className="min-w-0 flex-1 rounded border border-input bg-background px-2 py-1 text-sm"
+                        className="w-full rounded border border-input bg-background px-2 py-1 text-sm"
                         autoFocus
                         required
                         aria-label="Nombre del participante"
                       />
-                      <button
-                        type="submit"
-                        disabled={pending}
-                        className="text-sm font-medium text-primary disabled:opacity-50"
-                      >
-                        Guardar
-                      </button>
-                      <button
-                        type="button"
-                        disabled={pending}
-                        onClick={() => {
-                          setEditingParticipantId(null);
-                          setError(null);
-                        }}
-                        className="text-sm text-muted-foreground"
-                      >
-                        Cancelar
-                      </button>
+                      <div className="flex flex-col gap-1">
+                        <label
+                          htmlFor={`alias-${p.id}`}
+                          className="text-xs text-muted-foreground"
+                        >
+                          Alias para cobrar (opcional)
+                        </label>
+                        <input
+                          id={`alias-${p.id}`}
+                          type="text"
+                          maxLength={PARTICIPANT_PAYMENT_ALIAS_MAX}
+                          value={participantAliasDraft}
+                          onChange={(e) => setParticipantAliasDraft(e.target.value)}
+                          className="rounded border border-input bg-background px-2 py-1 text-sm"
+                          placeholder="Ej. CVU, alias MP…"
+                          aria-label="Alias para cobrar"
+                        />
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="submit"
+                          disabled={pending}
+                          className="text-sm font-medium text-primary disabled:opacity-50"
+                        >
+                          Guardar
+                        </button>
+                        <button
+                          type="button"
+                          disabled={pending}
+                          onClick={cancelParticipantEdit}
+                          className="text-sm text-muted-foreground"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
                     </form>
                     <button
                       type="button"
@@ -315,9 +436,16 @@ export function GroupDetailMeta({
                   </>
                 ) : (
                   <>
-                    <div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-1.5">
-                      <span className="min-w-0 text-card-foreground">{p.display_name}</span>
-                      {balanceEl}
+                    <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                      <div className="flex flex-wrap items-baseline gap-1.5">
+                        <span className="min-w-0 text-card-foreground">{p.display_name}</span>
+                        {balanceEl}
+                      </div>
+                      {p.payment_alias ? (
+                        <p className="text-xs text-muted-foreground">
+                          Alias: {p.payment_alias}
+                        </p>
+                      ) : null}
                     </div>
                     <button
                       type="button"
