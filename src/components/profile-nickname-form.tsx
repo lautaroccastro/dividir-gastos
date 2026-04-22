@@ -2,8 +2,9 @@
 
 import { saveProfileNicknameAction } from "@/app/actions/profile";
 import { PARTICIPANT_NAME_MAX } from "@/lib/validation/group-create";
+import { formatStoredProfileNickname } from "@/lib/validation/profile";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 
 type Props = {
   initialNickname?: string;
@@ -37,8 +38,19 @@ export function ProfileNicknameForm({
     };
   }, []);
 
+  const normalizedDraft = useMemo(
+    () => formatStoredProfileNickname(value),
+    [value],
+  );
+  const normalizedInitial = useMemo(
+    () => formatStoredProfileNickname(initialNickname),
+    [initialNickname],
+  );
+  const unchanged = normalizedDraft === normalizedInitial;
+
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (unchanged) return;
     setError(null);
     setSavedOk(false);
     if (savedHideTimer.current) {
@@ -115,7 +127,7 @@ export function ProfileNicknameForm({
       </div>
       <button
         type="submit"
-        disabled={pending}
+        disabled={pending || unchanged}
         className="w-fit rounded-full bg-primary px-5 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
       >
         {pending ? "Guardando…" : submitLabel}
