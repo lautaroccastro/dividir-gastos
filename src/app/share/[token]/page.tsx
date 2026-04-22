@@ -122,25 +122,23 @@ export default async function SharedGroupPage({ params }: Props) {
 
   const groupId = group.id as string;
 
-  const { data: participants } = await admin
-    .from("participants")
-    .select("id, display_name, sort_order, is_self, payment_alias")
-    .eq("group_id", groupId)
-    .order("sort_order", { ascending: true })
-    .order("id", { ascending: true });
-
-  const { data: ownerProfile } = await admin
-    .from("profiles")
-    .select("nickname")
-    .eq("id", group.user_id as string)
-    .maybeSingle();
-
-  const ownerNickname = ownerProfile?.nickname?.trim() || "—";
-
-  const { data: expensesRaw } = await admin
-    .from("expenses")
-    .select(
-      `
+  const [{ data: participants }, { data: ownerProfile }, { data: expensesRaw }] =
+    await Promise.all([
+      admin
+        .from("participants")
+        .select("id, display_name, sort_order, is_self, payment_alias")
+        .eq("group_id", groupId)
+        .order("sort_order", { ascending: true })
+        .order("id", { ascending: true }),
+      admin
+        .from("profiles")
+        .select("nickname")
+        .eq("id", group.user_id as string)
+        .maybeSingle(),
+      admin
+        .from("expenses")
+        .select(
+          `
       id,
       title,
       amount,
@@ -148,10 +146,13 @@ export default async function SharedGroupPage({ params }: Props) {
       paid_by_participant_id,
       expense_split_participants ( participant_id )
     `,
-    )
-    .eq("group_id", groupId)
-    .order("expense_date", { ascending: false })
-    .order("created_at", { ascending: false });
+        )
+        .eq("group_id", groupId)
+        .order("expense_date", { ascending: false })
+        .order("created_at", { ascending: false }),
+    ]);
+
+  const ownerNickname = ownerProfile?.nickname?.trim() || "—";
 
   const expenses: GroupExpenseRow[] = (expensesRaw as ExpenseQueryRow[] | null)?.map(
     (row) => ({

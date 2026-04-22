@@ -38,31 +38,47 @@ export default async function GroupDetailPage({ params }: Props) {
     notFound();
   }
 
-  const { data: group, error } = await supabase
-    .from("groups")
-    .select(
-      "id, name, currency, created_at, transfers_suggested_ui, share_enabled, share_token",
-    )
-    .eq("id", id)
-    .eq("user_id", user.id)
-    .maybeSingle();
+  const [
+    { data: group, error },
+    { data: participants },
+    { data: profile, error: profileError },
+    { data: expensesRaw },
+  ] = await Promise.all([
+    supabase
+      .from("groups")
+      .select(
+        "id, name, currency, created_at, transfers_suggested_ui, share_enabled, share_token",
+      )
+      .eq("id", id)
+      .eq("user_id", user.id)
+      .maybeSingle(),
+    supabase
+      .from("participants")
+      .select("id, display_name, sort_order, is_self, payment_alias")
+      .eq("group_id", id)
+      .order("sort_order", { ascending: true })
+      .order("id", { ascending: true }),
+    supabase.from("profiles").select("nickname").eq("id", user.id).maybeSingle(),
+    supabase
+      .from("expenses")
+      .select(
+        `
+      id,
+      title,
+      amount,
+      expense_date,
+      paid_by_participant_id,
+      expense_split_participants ( participant_id )
+    `,
+      )
+      .eq("group_id", id)
+      .order("expense_date", { ascending: false })
+      .order("created_at", { ascending: false }),
+  ]);
 
   if (error || !group) {
     notFound();
   }
-
-  const { data: participants } = await supabase
-    .from("participants")
-    .select("id, display_name, sort_order, is_self, payment_alias")
-    .eq("group_id", id)
-    .order("sort_order", { ascending: true })
-    .order("id", { ascending: true });
-
-  const { data: profile, error: profileError } = await supabase
-    .from("profiles")
-    .select("nickname")
-    .eq("id", user.id)
-    .maybeSingle();
 
   if (profileError) {
     return (
@@ -105,22 +121,6 @@ export default async function GroupDetailPage({ params }: Props) {
       sort_order: p.sort_order,
       payment_alias: p.payment_alias as string | null,
     })) ?? [];
-
-  const { data: expensesRaw } = await supabase
-    .from("expenses")
-    .select(
-      `
-      id,
-      title,
-      amount,
-      expense_date,
-      paid_by_participant_id,
-      expense_split_participants ( participant_id )
-    `,
-    )
-    .eq("group_id", id)
-    .order("expense_date", { ascending: false })
-    .order("created_at", { ascending: false });
 
   const expenses: GroupExpenseRow[] = (expensesRaw as ExpenseQueryRow[] | null)?.map(
     (row) => ({
