@@ -31,25 +31,42 @@ export const metadata = {
   robots: { index: false, follow: false } as const,
 };
 
+function SharePageNavLink({ isLoggedIn }: { isLoggedIn: boolean }) {
+  return isLoggedIn ? (
+    <Link
+      href="/"
+      className="mt-8 text-sm font-medium text-primary underline hover:opacity-90"
+    >
+      Ir al inicio
+    </Link>
+  ) : (
+    <Link
+      href="/login"
+      className="mt-8 text-sm font-medium text-primary underline hover:opacity-90"
+    >
+      Iniciar sesión
+    </Link>
+  );
+}
+
 function PrivateShareMessage({ isLoggedIn }: { isLoggedIn: boolean }) {
   return (
     <div className="mx-auto flex min-h-[50vh] max-w-md flex-col justify-center px-4 py-16 text-center">
       <p className="text-base text-muted-foreground">{PRIVATE_MSG}</p>
-      {isLoggedIn ? (
-        <Link
-          href="/"
-          className="mt-8 text-sm font-medium text-primary underline hover:opacity-90"
-        >
-          Ir al inicio
-        </Link>
-      ) : (
-        <Link
-          href="/login"
-          className="mt-8 text-sm font-medium text-primary underline hover:opacity-90"
-        >
-          Iniciar sesión
-        </Link>
-      )}
+      <SharePageNavLink isLoggedIn={isLoggedIn} />
+    </div>
+  );
+}
+
+/** Grupo inexistente, token incorrecto o grupo borrado (no distinguimos sin datos extra). */
+function InvalidShareLinkMessage({ isLoggedIn }: { isLoggedIn: boolean }) {
+  return (
+    <div className="mx-auto flex min-h-[50vh] max-w-md flex-col justify-center px-4 py-16 text-center">
+      <p className="text-base font-medium text-foreground">No encontramos este grupo</p>
+      <p className="mt-2 text-sm text-muted-foreground">
+        Puede que se haya eliminado o que el enlace no sea válido.
+      </p>
+      <SharePageNavLink isLoggedIn={isLoggedIn} />
     </div>
   );
 }
@@ -63,7 +80,7 @@ export default async function SharedGroupPage({ params }: Props) {
   const isLoggedIn = Boolean(user);
 
   if (!token?.trim()) {
-    return <PrivateShareMessage isLoggedIn={isLoggedIn} />;
+    return <InvalidShareLinkMessage isLoggedIn={isLoggedIn} />;
   }
 
   let admin;
@@ -92,7 +109,7 @@ export default async function SharedGroupPage({ params }: Props) {
     .maybeSingle();
 
   if (groupErr || !group || group.share_token !== token) {
-    return <PrivateShareMessage isLoggedIn={isLoggedIn} />;
+    return <InvalidShareLinkMessage isLoggedIn={isLoggedIn} />;
   }
 
   if (user && user.id === group.user_id) {
@@ -164,6 +181,15 @@ export default async function SharedGroupPage({ params }: Props) {
 
   return (
     <div className="mx-auto flex min-h-screen max-w-2xl flex-col gap-6 px-4 py-10">
+      {user ? (
+        <Link
+          href="/"
+          className="text-sm text-muted-foreground hover:text-foreground"
+        >
+          ← Ir al inicio
+        </Link>
+      ) : null}
+
       <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
         Vista compartida · solo lectura
       </p>
