@@ -7,7 +7,10 @@ import {
   updateExpenseAction,
 } from "@/app/actions/expenses";
 import { computeParticipantNetBalancesCents } from "@/lib/expense/balance";
-import { computeSuggestedTransfers } from "@/lib/expense/suggested-transfers";
+import {
+  computeSuggestedTransfers,
+  type SuggestedTransfer,
+} from "@/lib/expense/suggested-transfers";
 import { amountToCents, splitAmountCentsEvenly } from "@/lib/expense/split";
 import {
   EXPENSE_TITLE_MAX,
@@ -41,6 +44,7 @@ type Props = {
   currency: string;
   participants: GroupExpenseParticipant[];
   expenses: GroupExpenseRow[];
+  readOnly?: boolean;
 };
 
 function formatMoney(amountStr: string, currencyCode: string): string {
@@ -79,6 +83,70 @@ function participantPaymentAliasById(
   return String(a).trim();
 }
 
+function SuggestedTransfersContent({
+  participants,
+  rows,
+  currency,
+}: {
+  participants: GroupExpenseParticipant[];
+  rows: SuggestedTransfer[];
+  currency: string;
+}) {
+  if (rows.length === 0) {
+    return (
+      <p className="rounded-lg bg-green-50 px-3 py-2 text-sm font-medium text-green-800 dark:bg-green-950/50 dark:text-green-300">
+        Todos los gastos están saldados
+      </p>
+    );
+  }
+  return (
+    <>
+      <p className="text-sm text-muted-foreground">
+        Montos mínimos para saldar balances, según los gastos cargados.
+      </p>
+      <ul className="flex flex-col gap-2">
+        {rows.map((t, index) => {
+          const receiverAlias = participantPaymentAliasById(
+            participants,
+            t.toParticipantId,
+          );
+          return (
+            <li
+              key={`${t.fromParticipantId}-${t.toParticipantId}-${index}`}
+              className="rounded-lg border border-border bg-card px-3 py-2 text-sm"
+            >
+              <div className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)_auto_auto_auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1">
+                <span className="min-w-0 font-medium text-red-700 dark:text-red-400">
+                  {participantNameById(participants, t.fromParticipantId)}
+                </span>
+                <span className="justify-self-center text-muted-foreground" aria-hidden>
+                  →
+                </span>
+                <span className="shrink-0 justify-self-center font-semibold tabular-nums text-foreground">
+                  {formatMoney((t.amountCents / 100).toFixed(2), currency)}
+                </span>
+                <span className="justify-self-center text-muted-foreground" aria-hidden>
+                  →
+                </span>
+                <div className="min-w-0 justify-self-end text-right">
+                  <span className="block font-medium text-green-700 dark:text-green-500">
+                    {participantNameById(participants, t.toParticipantId)}
+                  </span>
+                  {receiverAlias ? (
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      Alias: {receiverAlias}
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </>
+  );
+}
+
 const expenseFormCardClass =
   "rounded-lg border border-primary bg-primary/5 p-4 text-card-foreground";
 
@@ -87,10 +155,13 @@ export function GroupExpensesSection({
   currency,
   participants,
   expenses,
+  readOnly = false,
 }: Props) {
   const router = useRouter();
-  const { transfersViewActive: showTransfersView, setTransfersViewActive } =
-    useGroupTransfersUi();
+  const {
+    transfersViewActive: showTransfersView,
+    setTransfersViewActive: setCtxTransfersView,
+  } = useGroupTransfersUi();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [title, setTitle] = useState("");
@@ -127,15 +198,16 @@ export function GroupExpensesSection({
 
   const prevFingerprintRef = useRef<string | null>(null);
   useEffect(() => {
+    if (readOnly) return;
     if (prevFingerprintRef.current === null) {
       prevFingerprintRef.current = expensesDataFingerprint;
       return;
     }
     if (prevFingerprintRef.current !== expensesDataFingerprint) {
       prevFingerprintRef.current = expensesDataFingerprint;
-      setTransfersViewActive(false);
+      setCtxTransfersView(false);
     }
-  }, [expensesDataFingerprint, setTransfersViewActive]);
+  }, [expensesDataFingerprint, readOnly, setCtxTransfersView]);
 
   const suggestedTransfers = useMemo(() => {
     const net = computeParticipantNetBalancesCents(expenses, orderedParticipantIds);
@@ -273,7 +345,7 @@ export function GroupExpensesSection({
     setEditingId(null);
     setIsCreating(false);
     setError(null);
-    setTransfersViewActive(true);
+    setCtxTransfersView(true);
     startTransition(async () => {
       const result = await setGroupTransfersSuggestedUiAction({
         groupId,
@@ -281,7 +353,7 @@ export function GroupExpensesSection({
       });
       if (result?.error) {
         setError(result.error);
-        setTransfersViewActive(false);
+        setCtxTransfersView(false);
         return;
       }
       router.refresh();
@@ -289,8 +361,8 @@ export function GroupExpensesSection({
   }
 
   function closeTransfersView() {
-    setTransfersViewActive(false);
     setError(null);
+    setCtxTransfersView(false);
     startTransition(async () => {
       const result = await setGroupTransfersSuggestedUiAction({
         groupId,
@@ -440,6 +512,7 @@ export function GroupExpensesSection({
   }
 
   const expensesReadOnly = showTransfersView;
+  const dimExpensesFromTransfersMode = showTransfersView && !readOnly;
 
   return (
     <section
@@ -448,11 +521,11 @@ export function GroupExpensesSection({
     >
       <h2 className="text-lg font-semibold text-foreground">Historial de pagos</h2>
 
-      {expensesReadOnly ? <TransfersReadonlyNotice /> : null}
+      {dimExpensesFromTransfersMode ? <TransfersReadonlyNotice /> : null}
 
       <div
         className={
-          expensesReadOnly
+          dimExpensesFromTransfersMode
             ? "pointer-events-none cursor-not-allowed select-none opacity-60"
             : undefined
         }
@@ -462,7 +535,8 @@ export function GroupExpensesSection({
         ) : (
           <ul className="flex flex-col gap-2">
             {expenses.map((row) => {
-            const isEdit = editingId === row.id && !expensesReadOnly;
+            const isEdit =
+              !readOnly && editingId === row.id && !expensesReadOnly;
             const breakdown = splitBreakdownForExpense(row);
             const sharePerPersonStr =
               breakdown.length > 0
@@ -543,24 +617,26 @@ export function GroupExpensesSection({
                       <span className="text-sm text-muted-foreground">
                         Pagado el {formatExpenseDateDdMmYyyy(row.expense_date)}
                       </span>
-                      <div className="flex shrink-0 gap-4">
-                        <button
-                          type="button"
-                          disabled={pending}
-                          onClick={() => loadExpenseForEdit(row)}
-                          className="text-sm text-muted-foreground underline decoration-muted-foreground/70 underline-offset-2 hover:text-foreground disabled:opacity-50"
-                        >
-                          Editar
-                        </button>
-                        <button
-                          type="button"
-                          disabled={pending}
-                          onClick={() => handleDelete(row.id)}
-                          className="text-sm font-medium text-red-700 underline decoration-red-700 underline-offset-2 hover:text-red-800 dark:text-red-500 dark:decoration-red-500 dark:hover:text-red-400 disabled:opacity-50"
-                        >
-                          Borrar
-                        </button>
-                      </div>
+                      {!readOnly ? (
+                        <div className="flex shrink-0 gap-4">
+                          <button
+                            type="button"
+                            disabled={pending}
+                            onClick={() => loadExpenseForEdit(row)}
+                            className="text-sm text-muted-foreground underline decoration-muted-foreground/70 underline-offset-2 hover:text-foreground disabled:opacity-50"
+                          >
+                            Editar
+                          </button>
+                          <button
+                            type="button"
+                            disabled={pending}
+                            onClick={() => handleDelete(row.id)}
+                            className="text-sm font-medium text-red-700 underline decoration-red-700 underline-offset-2 hover:text-red-800 dark:text-red-500 dark:decoration-red-500 dark:hover:text-red-400 disabled:opacity-50"
+                          >
+                            Borrar
+                          </button>
+                        </div>
+                      ) : null}
                     </div>
                   </div>
                 )}
@@ -573,12 +649,16 @@ export function GroupExpensesSection({
 
       <div
         className={`pt-2 ${
-          expensesReadOnly
+          !readOnly && expensesReadOnly
             ? "pointer-events-none cursor-not-allowed select-none opacity-60"
             : ""
         }`}
       >
-        {isCreating && !expensesReadOnly ? (
+        {readOnly ? (
+          <p className="text-sm text-muted-foreground">
+            No se pueden agregar gastos desde el enlace compartido.
+          </p>
+        ) : isCreating && !expensesReadOnly ? (
           <form
             onSubmit={handleSubmit}
             className={expenseFormCardClass}
@@ -628,64 +708,19 @@ export function GroupExpensesSection({
         <h2 className="text-lg font-semibold text-foreground" id="transferencias-heading">
           Transferencias sugeridas
         </h2>
-        {showTransfersView ? (
+        {readOnly ? (
+          <SuggestedTransfersContent
+            participants={participants}
+            rows={suggestedTransfers}
+            currency={currency}
+          />
+        ) : showTransfersView ? (
           <>
-            {suggestedTransfers.length === 0 ? (
-              <p className="rounded-lg bg-green-50 px-3 py-2 text-sm font-medium text-green-800 dark:bg-green-950/50 dark:text-green-300">
-                Todos los gastos están saldados
-              </p>
-            ) : (
-              <>
-                <p className="text-sm text-muted-foreground">
-                  Montos mínimos para saldar balances, según los gastos cargados.
-                </p>
-                <ul className="flex flex-col gap-2">
-                  {suggestedTransfers.map((t, index) => {
-                    const receiverAlias = participantPaymentAliasById(
-                      participants,
-                      t.toParticipantId,
-                    );
-                    return (
-                      <li
-                        key={`${t.fromParticipantId}-${t.toParticipantId}-${index}`}
-                        className="rounded-lg border border-border bg-card px-3 py-2 text-sm"
-                      >
-                        <div className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)_auto_auto_auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1">
-                          <span className="min-w-0 font-medium text-red-700 dark:text-red-400">
-                            {participantNameById(participants, t.fromParticipantId)}
-                          </span>
-                          <span
-                            className="justify-self-center text-muted-foreground"
-                            aria-hidden
-                          >
-                            →
-                          </span>
-                          <span className="shrink-0 justify-self-center font-semibold tabular-nums text-foreground">
-                            {formatMoney((t.amountCents / 100).toFixed(2), currency)}
-                          </span>
-                          <span
-                            className="justify-self-center text-muted-foreground"
-                            aria-hidden
-                          >
-                            →
-                          </span>
-                          <div className="min-w-0 justify-self-end text-right">
-                            <span className="block font-medium text-green-700 dark:text-green-500">
-                              {participantNameById(participants, t.toParticipantId)}
-                            </span>
-                            {receiverAlias ? (
-                              <p className="mt-0.5 text-xs text-muted-foreground">
-                                Alias: {receiverAlias}
-                              </p>
-                            ) : null}
-                          </div>
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </>
-            )}
+            <SuggestedTransfersContent
+              participants={participants}
+              rows={suggestedTransfers}
+              currency={currency}
+            />
             <div className="flex flex-col gap-3 pt-2">
               <button
                 type="button"

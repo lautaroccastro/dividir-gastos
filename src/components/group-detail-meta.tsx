@@ -50,6 +50,8 @@ type Props = {
   initialNetBalanceCentsByParticipantId: Record<string, number>;
   /** Owner-only label, e.g. «María (Tú)»; DB row for self still stores «Tú». */
   selfParticipantDisplayName: string;
+  /** Public share view: no edits, no add/remove. */
+  readOnly?: boolean;
 };
 
 export function GroupDetailMeta({
@@ -59,6 +61,7 @@ export function GroupDetailMeta({
   initialParticipants,
   initialNetBalanceCentsByParticipantId,
   selfParticipantDisplayName,
+  readOnly = false,
 }: Props) {
   const router = useRouter();
   const { transfersViewActive: participantsReadOnly } = useGroupTransfersUi();
@@ -73,7 +76,7 @@ export function GroupDetailMeta({
   const [addDraft, setAddDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  const participantControlsDisabled = pending || participantsReadOnly;
+  const participantControlsDisabled = pending || participantsReadOnly || readOnly;
 
   useEffect(() => {
     if (!participantsReadOnly) return;
@@ -217,7 +220,9 @@ export function GroupDetailMeta({
 
       <div className="flex flex-col gap-3 border-b border-border pb-6">
         <div className="flex flex-col gap-2">
-          {editingName ? (
+          {readOnly ? (
+            <h1 className="text-2xl font-semibold text-foreground">{initialName}</h1>
+          ) : editingName ? (
             <form
               onSubmit={submitName}
               className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center"
@@ -276,13 +281,52 @@ export function GroupDetailMeta({
 
       <section className="flex flex-col gap-3" aria-label="Participantes">
         <h2 className="text-lg font-semibold text-foreground">Participantes</h2>
-        {participantsReadOnly ? (
+        {readOnly ? (
+          <p className="text-sm text-muted-foreground">
+            Vista compartida: solo lectura. Los balances reflejan los gastos cargados.
+          </p>
+        ) : participantsReadOnly ? (
           <TransfersReadonlyNotice />
         ) : (
           <p className="text-sm text-muted-foreground">
             Los participantes nuevos no se agregan solos al reparto de gastos ya cargados.
           </p>
         )}
+        {readOnly ? (
+          <ul className="flex flex-col gap-2">
+            {initialParticipants.map((p) => {
+              const netCents = initialNetBalanceCentsByParticipantId[p.id] ?? 0;
+              const balanceElRo = (
+                <span
+                  className={`text-sm font-semibold tabular-nums ${netBalanceColorClass(netCents)}`}
+                  title="Balance neto"
+                >
+                  ({formatNetBalanceMoney(netCents, initialCurrency)})
+                </span>
+              );
+              return (
+                <li
+                  key={p.id}
+                  className="flex flex-wrap items-start gap-2 rounded-lg border border-border bg-card px-3 py-2"
+                >
+                  <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                    <div className="flex flex-wrap items-baseline gap-1.5">
+                      <span className="min-w-0 font-medium text-card-foreground">
+                        {p.is_self ? selfParticipantDisplayName : p.display_name}
+                      </span>
+                      {balanceElRo}
+                    </div>
+                    {p.payment_alias ? (
+                      <p className="text-xs text-muted-foreground">
+                        Alias: {p.payment_alias}
+                      </p>
+                    ) : null}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
         <div
           className={
             participantsReadOnly
@@ -533,6 +577,7 @@ export function GroupDetailMeta({
         )}
         </div>
         </div>
+        )}
       </section>
     </div>
   );

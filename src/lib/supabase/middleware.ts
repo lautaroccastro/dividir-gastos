@@ -41,8 +41,9 @@ export async function updateSession(request: NextRequest) {
     path.startsWith("/login") ||
     path.startsWith("/auth");
   const isOnboarding = path.startsWith("/onboarding");
+  const isPublicShare = path.startsWith("/share");
 
-  if (user && !isAuthSurface) {
+  if (user && !isAuthSurface && !isPublicShare) {
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("nickname")

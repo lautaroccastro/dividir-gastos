@@ -1,4 +1,5 @@
 import { DeleteGroupButton } from "@/components/delete-group-button";
+import { GroupSharePanel } from "@/components/group-share-panel";
 import { GroupDetailMeta } from "@/components/group-detail-meta";
 import {
   GroupExpensesSection,
@@ -39,7 +40,9 @@ export default async function GroupDetailPage({ params }: Props) {
 
   const { data: group, error } = await supabase
     .from("groups")
-    .select("id, name, currency, created_at, transfers_suggested_ui")
+    .select(
+      "id, name, currency, created_at, transfers_suggested_ui, share_enabled, share_token",
+    )
     .eq("id", id)
     .eq("user_id", user.id)
     .maybeSingle();
@@ -170,6 +173,11 @@ export default async function GroupDetailPage({ params }: Props) {
           expenses={expenses}
         />
       </GroupTransfersUiProvider>
+      <GroupSharePanel
+        groupId={group.id}
+        shareEnabled={Boolean(group.share_enabled)}
+        shareToken={(group.share_token as string | null) ?? null}
+      />
       <section
         className="border-t border-border pt-8"
         aria-label="Eliminar grupo"
