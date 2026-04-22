@@ -148,8 +148,8 @@ export default async function SharedGroupPage({ params }: Props) {
     `,
         )
         .eq("group_id", groupId)
-        .order("expense_date", { ascending: false })
-        .order("created_at", { ascending: false }),
+        .order("created_at", { ascending: true })
+        .order("id", { ascending: true }),
     ]);
 
   const ownerNickname = ownerProfile?.nickname?.trim() || "—";

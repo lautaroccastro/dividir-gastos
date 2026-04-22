@@ -72,8 +72,8 @@ export default async function GroupDetailPage({ params }: Props) {
     `,
       )
       .eq("group_id", id)
-      .order("expense_date", { ascending: false })
-      .order("created_at", { ascending: false }),
+      .order("created_at", { ascending: true })
+      .order("id", { ascending: true }),
   ]);
 
   if (error || !group) {

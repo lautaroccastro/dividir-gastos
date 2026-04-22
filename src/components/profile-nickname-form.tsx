@@ -3,7 +3,7 @@
 import { saveProfileNicknameAction } from "@/app/actions/profile";
 import { PARTICIPANT_NAME_MAX } from "@/lib/validation/group-create";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 
 type Props = {
   initialNickname?: string;
@@ -27,11 +27,24 @@ export function ProfileNicknameForm({
   const router = useRouter();
   const [value, setValue] = useState(initialNickname);
   const [error, setError] = useState<string | null>(null);
+  const [savedOk, setSavedOk] = useState(false);
   const [pending, startTransition] = useTransition();
+  const savedHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (savedHideTimer.current) clearTimeout(savedHideTimer.current);
+    };
+  }, []);
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setSavedOk(false);
+    if (savedHideTimer.current) {
+      clearTimeout(savedHideTimer.current);
+      savedHideTimer.current = null;
+    }
     startTransition(async () => {
       const result = await saveProfileNicknameAction(value);
       if (result?.error) {
@@ -43,6 +56,8 @@ export function ProfileNicknameForm({
         router.refresh();
         return;
       }
+      setSavedOk(true);
+      savedHideTimer.current = setTimeout(() => setSavedOk(false), 5000);
       onSuccess?.();
       router.refresh();
     });
@@ -64,6 +79,14 @@ export function ProfileNicknameForm({
           {error}
         </div>
       ) : null}
+      {savedOk && !error ? (
+        <div
+          role="status"
+          className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-950 dark:border-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-100"
+        >
+          Apodo guardado correctamente.
+        </div>
+      ) : null}
       <div className="flex flex-col gap-1.5">
         <label htmlFor="profile-nickname" className="text-sm font-medium text-foreground">
           Apodo
@@ -74,7 +97,14 @@ export function ProfileNicknameForm({
           name="nickname"
           maxLength={PARTICIPANT_NAME_MAX}
           value={value}
-          onChange={(e) => setValue(e.target.value)}
+          onChange={(e) => {
+            setValue(e.target.value);
+            setSavedOk(false);
+            if (savedHideTimer.current) {
+              clearTimeout(savedHideTimer.current);
+              savedHideTimer.current = null;
+            }
+          }}
           required
           autoComplete="nickname"
           className="rounded-lg border border-input bg-background px-3 py-2 text-foreground"
