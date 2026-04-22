@@ -191,7 +191,10 @@ export async function addParticipantAction(input: {
   }
 
   if (formatted === SELF_PARTICIPANT_LABEL) {
-    return { error: "Ese nombre está reservado para el participante «Tú»." };
+    return {
+      error:
+        "Ese nombre está reservado para tu propia fila en el grupo (marcada como «Tú» en el sistema).",
+    };
   }
 
   const lower = formatted.trim().toLowerCase();
@@ -246,11 +249,17 @@ export async function updateParticipantNameAction(input: {
   if (pErr || !row) return { error: "No se encontró el participante." };
 
   if (row.is_self) {
-    return { error: "El participante «Tú» no se puede renombrar." };
+    return {
+      error:
+        "No podés renombrar tu propia fila del grupo. Cambiá tu apodo en Cuenta si querés otro nombre visible.",
+    };
   }
 
   if (formatted === SELF_PARTICIPANT_LABEL) {
-    return { error: "Ese nombre está reservado para el participante «Tú»." };
+    return {
+      error:
+        "Ese nombre está reservado para la fila del dueño del grupo (sistema «Tú»).",
+    };
   }
 
   const { data: others, error: oErr } = await supabase

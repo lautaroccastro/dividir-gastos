@@ -103,6 +103,12 @@ export default async function Home() {
         <div className="flex w-full min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-2">
           <span className="min-w-0 truncate text-sm text-foreground">
             <span className="font-medium">{user.email}</span>
+            <Link
+              href="/cuenta"
+              className="ml-3 text-muted-foreground underline hover:text-foreground"
+            >
+              Cuenta
+            </Link>
           </span>
           <form action={signOut} className="shrink-0">
             <button

@@ -30,7 +30,11 @@ function caseInsensitiveKey(displayName: string): string {
  *
  * Participant names: formatted when confirmed (Add / Enter, or Save in edit), same as server.
  */
-export function CreateGroupForm() {
+export function CreateGroupForm({
+  selfParticipantDisplayName,
+}: {
+  selfParticipantDisplayName: string;
+}) {
   const [groupName, setGroupName] = useState("");
   /** Only ARS or USD — fixed options from `<select>`, not user-typed text. */
   const [currency, setCurrency] = useState<CurrencyCode>("ARS");
@@ -272,7 +276,7 @@ export function CreateGroupForm() {
             >
               {participant.isSelf ? (
                 <span className="flex-1 font-medium text-card-foreground">
-                  {SELF_PARTICIPANT_LABEL}
+                  {selfParticipantDisplayName}
                 </span>
               ) : editingKey === participant.localKey ? (
                 <>

@@ -32,7 +32,41 @@ export async function updateSession(request: NextRequest) {
     },
   );
 
-  await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const path = request.nextUrl.pathname;
+  const isAuthSurface =
+    path.startsWith("/login") ||
+    path.startsWith("/auth");
+  const isOnboarding = path.startsWith("/onboarding");
+
+  if (user && !isAuthSurface) {
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("nickname")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    const nicknameOk =
+      !profileError &&
+      Boolean(profile?.nickname && String(profile.nickname).trim());
+
+    if (isOnboarding) {
+      if (nicknameOk) {
+        const redirectUrl = request.nextUrl.clone();
+        redirectUrl.pathname = "/";
+        redirectUrl.search = "";
+        return NextResponse.redirect(redirectUrl);
+      }
+    } else if (!nicknameOk) {
+      const redirectUrl = request.nextUrl.clone();
+      redirectUrl.pathname = "/onboarding";
+      redirectUrl.search = "";
+      return NextResponse.redirect(redirectUrl);
+    }
+  }
 
   return supabaseResponse;
 }

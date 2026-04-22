@@ -6,9 +6,10 @@ import {
 } from "@/components/group-expenses-section";
 import { GroupTransfersUiProvider } from "@/components/group-transfers-ui-context";
 import { computeParticipantNetBalancesCents } from "@/lib/expense/balance";
+import { formatSelfParticipantDisplayName } from "@/lib/text/self-participant-display";
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -53,6 +54,54 @@ export default async function GroupDetailPage({ params }: Props) {
     .eq("group_id", id)
     .order("sort_order", { ascending: true })
     .order("id", { ascending: true });
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("nickname")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (profileError) {
+    return (
+      <div className="mx-auto flex min-h-screen max-w-2xl flex-col gap-4 px-4 py-10">
+        <Link
+          href="/"
+          className="text-sm text-muted-foreground hover:text-foreground"
+        >
+          ← Mis grupos
+        </Link>
+        <div
+          role="alert"
+          className="rounded-lg border border-destructive-border bg-destructive px-4 py-3 text-sm text-destructive-foreground"
+        >
+          No pudimos cargar tu perfil ({profileError.message}). Probá de nuevo
+          más tarde o revisá la configuración del proyecto.
+        </div>
+        <Link
+          href="/cuenta"
+          className="text-sm font-medium text-primary hover:underline"
+        >
+          Ir a Cuenta
+        </Link>
+      </div>
+    );
+  }
+
+  const nickname = profile?.nickname?.trim();
+  if (!nickname) {
+    redirect("/onboarding");
+  }
+
+  const selfParticipantDisplayName =
+    formatSelfParticipantDisplayName(nickname);
+
+  const participantsForExpenses =
+    participants?.map((p) => ({
+      id: p.id,
+      display_name: p.is_self ? selfParticipantDisplayName : p.display_name,
+      sort_order: p.sort_order,
+      payment_alias: p.payment_alias as string | null,
+    })) ?? [];
 
   const { data: expensesRaw } = await supabase
     .from("expenses")
@@ -112,11 +161,12 @@ export default async function GroupDetailPage({ params }: Props) {
             }))
           }
           initialNetBalanceCentsByParticipantId={netBalanceCentsByParticipantId}
+          selfParticipantDisplayName={selfParticipantDisplayName}
         />
         <GroupExpensesSection
           groupId={group.id}
           currency={group.currency}
-          participants={participants ?? []}
+          participants={participantsForExpenses}
           expenses={expenses}
         />
       </GroupTransfersUiProvider>

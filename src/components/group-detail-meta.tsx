@@ -12,7 +12,6 @@ import {
   PARTICIPANT_NAME_MAX,
   PARTICIPANT_PAYMENT_ALIAS_MAX,
   PARTICIPANTS_MAX,
-  SELF_PARTICIPANT_LABEL,
   type CurrencyCode,
 } from "@/lib/validation/group-create";
 import { useGroupTransfersUi } from "@/components/group-transfers-ui-context";
@@ -49,6 +48,8 @@ type Props = {
   initialCurrency: CurrencyCode;
   initialParticipants: ParticipantRow[];
   initialNetBalanceCentsByParticipantId: Record<string, number>;
+  /** Owner-only label, e.g. «María (Tú)»; DB row for self still stores «Tú». */
+  selfParticipantDisplayName: string;
 };
 
 export function GroupDetailMeta({
@@ -57,6 +58,7 @@ export function GroupDetailMeta({
   initialCurrency,
   initialParticipants,
   initialNetBalanceCentsByParticipantId,
+  selfParticipantDisplayName,
 }: Props) {
   const router = useRouter();
   const { transfersViewActive: participantsReadOnly } = useGroupTransfersUi();
@@ -160,7 +162,7 @@ export function GroupDetailMeta({
   function handleDeleteParticipant(p: ParticipantRow) {
     if (
       !window.confirm(
-        `¿Quitar a «${p.is_self ? SELF_PARTICIPANT_LABEL : p.display_name}» del grupo?`,
+        `¿Quitar a «${p.is_self ? selfParticipantDisplayName : p.display_name}» del grupo?`,
       )
     ) {
       return;
@@ -365,7 +367,7 @@ export function GroupDetailMeta({
                       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                         <div className="flex flex-wrap items-baseline gap-1.5">
                           <span className="min-w-0 font-medium text-card-foreground">
-                            {SELF_PARTICIPANT_LABEL}
+                            {selfParticipantDisplayName}
                           </span>
                           {balanceEl}
                         </div>
