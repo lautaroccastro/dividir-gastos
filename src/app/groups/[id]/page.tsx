@@ -139,6 +139,11 @@ export default async function GroupDetailPage({ params }: Props) {
   const netBalanceCentsByParticipantId = Object.fromEntries(
     computeParticipantNetBalancesCents(expenses, participantIdsOrdered),
   );
+  const totalExpensesCents = expenses.reduce((acc, row) => {
+    const amount = Number(row.amount);
+    if (!Number.isFinite(amount)) return acc;
+    return acc + Math.round(amount * 100);
+  }, 0);
 
   return (
     <div className="mx-auto flex min-h-screen max-w-2xl flex-col gap-6 px-4 py-10">
@@ -155,6 +160,7 @@ export default async function GroupDetailPage({ params }: Props) {
           groupId={group.id}
           initialName={group.name}
           initialCurrency={group.currency as "ARS" | "USD"}
+          totalExpensesCents={totalExpensesCents}
           initialParticipants={
             (participants ?? []).map((p) => ({
               id: p.id,

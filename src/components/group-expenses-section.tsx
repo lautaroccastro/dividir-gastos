@@ -519,7 +519,7 @@ export function GroupExpensesSection({
       className="flex flex-col gap-4 border-t border-border pt-8"
       aria-label="Gastos del grupo"
     >
-      <h2 className="text-lg font-semibold text-foreground">Historial de pagos</h2>
+      <h2 className="text-lg font-semibold text-foreground">Historial de gastos</h2>
 
       {dimExpensesFromTransfersMode ? <TransfersReadonlyNotice /> : null}
 

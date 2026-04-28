@@ -35,6 +35,15 @@ function netBalanceColorClass(cents: number): string {
   return "text-muted-foreground";
 }
 
+function formatTotalExpensesMoney(cents: number, currencyCode: string): string {
+  return new Intl.NumberFormat("es-AR", {
+    style: "currency",
+    currency: currencyCode,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(cents / 100);
+}
+
 type ParticipantRow = {
   id: string;
   display_name: string;
@@ -46,6 +55,7 @@ type Props = {
   groupId: string;
   initialName: string;
   initialCurrency: CurrencyCode;
+  totalExpensesCents: number;
   initialParticipants: ParticipantRow[];
   initialNetBalanceCentsByParticipantId: Record<string, number>;
   /** Owner-only label, e.g. «María (Tú)»; DB row for self still stores «Tú». */
@@ -58,6 +68,7 @@ export function GroupDetailMeta({
   groupId,
   initialName,
   initialCurrency,
+  totalExpensesCents,
   initialParticipants,
   initialNetBalanceCentsByParticipantId,
   selfParticipantDisplayName,
@@ -218,10 +229,10 @@ export function GroupDetailMeta({
         </div>
       ) : null}
 
-      <div className="flex flex-col gap-3 border-b border-border pb-6">
+      <div className="flex flex-col gap-3 border-b border-border pb-4">
         <div className="flex flex-col gap-2">
           {readOnly ? (
-            <h1 className="text-2xl font-semibold text-foreground">{initialName}</h1>
+            <h1 className="text-3xl font-semibold text-foreground">{initialName}</h1>
           ) : editingName ? (
             <form
               onSubmit={submitName}
@@ -261,7 +272,7 @@ export function GroupDetailMeta({
             </form>
           ) : (
             <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-              <h1 className="text-2xl font-semibold text-foreground">{initialName}</h1>
+              <h1 className="text-3xl font-semibold text-foreground">{initialName}</h1>
               <button
                 type="button"
                 disabled={pending}
@@ -277,6 +288,11 @@ export function GroupDetailMeta({
             </div>
           )}
         </div>
+        <p className="text-xl font-semibold text-foreground">
+          <span className="tabular-nums">
+            Total de gastos : {formatTotalExpensesMoney(totalExpensesCents, initialCurrency)}
+          </span>
+        </p>
       </div>
 
       <section className="flex flex-col gap-3" aria-label="Participantes">
