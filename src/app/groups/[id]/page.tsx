@@ -43,6 +43,7 @@ export default async function GroupDetailPage({ params }: Props) {
     { data: participants },
     { data: profile, error: profileError },
     { data: expensesRaw },
+    { data: doneTransfersRaw },
   ] = await Promise.all([
     supabase
       .from("groups")
@@ -74,6 +75,10 @@ export default async function GroupDetailPage({ params }: Props) {
       .eq("group_id", id)
       .order("created_at", { ascending: true })
       .order("id", { ascending: true }),
+    supabase
+      .from("group_transfer_done")
+      .select("transfer_key")
+      .eq("group_id", id),
   ]);
 
   if (error || !group) {
@@ -136,6 +141,8 @@ export default async function GroupDetailPage({ params }: Props) {
   ) ?? [];
 
   const participantIdsOrdered = (participants ?? []).map((p) => p.id);
+  const doneTransferKeys =
+    doneTransfersRaw?.map((row) => row.transfer_key as string).filter(Boolean) ?? [];
   const netBalanceCentsByParticipantId = Object.fromEntries(
     computeParticipantNetBalancesCents(expenses, participantIdsOrdered),
   );
@@ -177,6 +184,7 @@ export default async function GroupDetailPage({ params }: Props) {
           currency={group.currency}
           participants={participantsForExpenses}
           expenses={expenses}
+          initialDoneTransferKeys={doneTransferKeys}
         />
       </GroupTransfersUiProvider>
       <GroupSharePanel

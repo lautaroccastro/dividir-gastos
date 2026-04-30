@@ -33,6 +33,8 @@ export async function clearGroupTransfersSuggestedUi(groupId: string): Promise<v
     })
     .eq("id", groupId)
     .eq("user_id", user.id);
+
+  await supabase.from("group_transfer_done").delete().eq("group_id", groupId);
 }
 
 export async function setGroupTransfersSuggestedUiAction(input: {

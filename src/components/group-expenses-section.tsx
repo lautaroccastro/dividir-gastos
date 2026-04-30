@@ -2,6 +2,10 @@
 
 import { setGroupTransfersSuggestedUiAction } from "@/app/actions/group-update";
 import {
+  clearTransferDoneAction,
+  setTransferDoneAction,
+} from "@/app/actions/transfers";
+import {
   createExpenseAction,
   deleteExpenseAction,
   updateExpenseAction,
@@ -44,6 +48,7 @@ type Props = {
   currency: string;
   participants: GroupExpenseParticipant[];
   expenses: GroupExpenseRow[];
+  initialDoneTransferKeys?: string[];
   readOnly?: boolean;
 };
 
@@ -83,14 +88,26 @@ function participantPaymentAliasById(
   return String(a).trim();
 }
 
+function suggestedTransferKey(t: SuggestedTransfer, index: number): string {
+  return `${t.fromParticipantId}|${t.toParticipantId}|${t.amountCents}|${index}`;
+}
+
 function SuggestedTransfersContent({
   participants,
   rows,
   currency,
+  doneTransferKeys = new Set<string>(),
+  onToggleDone,
+  interactive = false,
+  toggleDisabled = false,
 }: {
   participants: GroupExpenseParticipant[];
   rows: SuggestedTransfer[];
   currency: string;
+  doneTransferKeys?: Set<string>;
+  onToggleDone?: (key: string) => void;
+  interactive?: boolean;
+  toggleDisabled?: boolean;
 }) {
   if (rows.length === 0) {
     return (
@@ -106,6 +123,8 @@ function SuggestedTransfersContent({
       </p>
       <ul className="flex flex-col gap-2">
         {rows.map((t, index) => {
+          const transferKey = suggestedTransferKey(t, index);
+          const done = doneTransferKeys.has(transferKey);
           const receiverAlias = participantPaymentAliasById(
             participants,
             t.toParticipantId,
@@ -113,9 +132,16 @@ function SuggestedTransfersContent({
           return (
             <li
               key={`${t.fromParticipantId}-${t.toParticipantId}-${index}`}
-              className="rounded-lg border border-border bg-card px-3 py-2 text-sm"
+              className="flex items-stretch gap-2"
             >
-              <div className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)_auto_auto_auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1">
+              <div
+                className={`min-w-0 flex-1 rounded-lg border px-3 py-2 text-sm ${
+                  done
+                    ? "border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-950/30"
+                    : "border-border bg-card"
+                }`}
+              >
+                <div className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)_auto_auto_auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1">
                 <span className="min-w-0 font-medium text-red-700 dark:text-red-400">
                   {participantNameById(participants, t.fromParticipantId)}
                 </span>
@@ -138,7 +164,23 @@ function SuggestedTransfersContent({
                     </p>
                   ) : null}
                 </div>
+                </div>
               </div>
+              {interactive ? (
+                <button
+                  type="button"
+                  onClick={() => onToggleDone?.(transferKey)}
+                  disabled={toggleDisabled}
+                  aria-label={done ? "Desmarcar transferencia realizada" : "Marcar transferencia realizada"}
+                  className={`w-10 shrink-0 rounded-lg border text-lg font-semibold disabled:opacity-50 ${
+                    done
+                      ? "border-green-200 bg-green-50 text-red-700 hover:bg-green-100 dark:border-green-900 dark:bg-green-950/30 dark:text-red-400 dark:hover:bg-green-950/50"
+                      : "border-border bg-background text-green-700 hover:bg-muted dark:text-green-400"
+                  }`}
+                >
+                  {done ? "✖" : "✔"}
+                </button>
+              ) : null}
             </li>
           );
         })}
@@ -155,6 +197,7 @@ export function GroupExpensesSection({
   currency,
   participants,
   expenses,
+  initialDoneTransferKeys = [],
   readOnly = false,
 }: Props) {
   const router = useRouter();
@@ -174,7 +217,14 @@ export function GroupExpensesSection({
     return initial;
   });
   const [error, setError] = useState<string | null>(null);
+  const [doneTransferKeys, setDoneTransferKeys] = useState<Set<string>>(
+    () => new Set(initialDoneTransferKeys),
+  );
   const [pending, startTransition] = useTransition();
+
+  useEffect(() => {
+    setDoneTransferKeys(new Set(initialDoneTransferKeys));
+  }, [initialDoneTransferKeys]);
 
   const orderedParticipantIds = useMemo(
     () =>
@@ -362,8 +412,17 @@ export function GroupExpensesSection({
 
   function closeTransfersView() {
     setError(null);
+    const previousDone = new Set(doneTransferKeys);
+    setDoneTransferKeys(new Set());
     setCtxTransfersView(false);
     startTransition(async () => {
+      const clearDoneResult = await clearTransferDoneAction({ groupId });
+      if (clearDoneResult?.error) {
+        setError(clearDoneResult.error);
+        setDoneTransferKeys(previousDone);
+        setCtxTransfersView(true);
+        return;
+      }
       const result = await setGroupTransfersSuggestedUiAction({
         groupId,
         value: false,
@@ -373,6 +432,29 @@ export function GroupExpensesSection({
         return;
       }
       router.refresh();
+    });
+  }
+
+  function toggleTransferDone(key: string) {
+    const previousDone = new Set(doneTransferKeys);
+    const nextDone = new Set(doneTransferKeys);
+    const willBeDone = !nextDone.has(key);
+    if (willBeDone) {
+      nextDone.add(key);
+    } else {
+      nextDone.delete(key);
+    }
+    setDoneTransferKeys(nextDone);
+    startTransition(async () => {
+      const result = await setTransferDoneAction({
+        groupId,
+        transferKey: key,
+        done: willBeDone,
+      });
+      if (result?.error) {
+        setError(result.error);
+        setDoneTransferKeys(previousDone);
+      }
     });
   }
 
@@ -720,6 +802,10 @@ export function GroupExpensesSection({
               participants={participants}
               rows={suggestedTransfers}
               currency={currency}
+              doneTransferKeys={doneTransferKeys}
+              onToggleDone={toggleTransferDone}
+              interactive
+              toggleDisabled={pending}
             />
             <div className="flex flex-col gap-3 pt-2">
               <button
@@ -732,7 +818,9 @@ export function GroupExpensesSection({
                 Volver a editar
               </button>
               <p className="text-xs text-muted-foreground">
-                Si editas gastos o participantes, las transferencias se vuelven a calcular.
+                Al volver a editar gastos se pierde el registro de transferencias
+                realizadas. Si editas gastos o participantes, las transferencias se
+                recalculan.
               </p>
             </div>
           </>
